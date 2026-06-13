@@ -1,0 +1,29 @@
+[
+  {
+    "name": "httpGet",
+    "description": "发起 HTTP GET 请求并打印响应体",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "description": "目标 URL" },
+        "headers": { "type": "string", "description": "附加 Header（JSON 字符串）" }
+      },
+      "required": ["url"]
+    },
+    "commandTemplate": "curl -sSL -m 15 {{url}}",
+    "timeout": 20000
+  },
+  {
+    "name": "searchFiles",
+    "description": "按关键词在指定目录中搜索文件名",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "dir": { "type": "string", "description": "搜索目录" },
+        "pattern": { "type": "string", "description": "文件名前缀/包含字串" }
+      },
+      "required": ["dir", "pattern"]
+    },
+    "commandTemplate": "ls {{dir}} | grep {{pattern}} || echo 无匹配"
+  }
+]
