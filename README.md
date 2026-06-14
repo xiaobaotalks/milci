@@ -73,6 +73,7 @@ micli -s my-session-id
 - 压缩状态持久化到 `compress-state.json`，重启不丢
 
 ### 3. 按模型自动识别上下文窗口
+
 内置 13 个主流模型映射（MiMo 1M / GPT-4o 128K / Claude 200K / DeepSeek 64K / GLM-4 128K / Moonshot 128K 等）。启动时若未设置 `MAX_TOKEN` 会自动按模型设置。
 
 > LLM 报错 `context_length_exceeded` / `prompt too long` 时，CLI 会自动降级 `maxTokens`（×0.9）并强制压缩后重试一次。
