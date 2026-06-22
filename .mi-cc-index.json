@@ -1,0 +1,703 @@
+{
+  "scannedAt": "2026-06-22T04:10:02.769Z",
+  "totalFiles": 33,
+  "files": [
+    {
+      "path": "vitest.config.ts",
+      "size": 185,
+      "mtime": "2026-06-22T02:37:05.242Z",
+      "functions": [],
+      "imports": [
+        "vitest/config"
+      ],
+      "exports": []
+    },
+    {
+      "path": "types.ts",
+      "size": 1781,
+      "mtime": "2026-06-22T04:03:16.356Z",
+      "functions": [],
+      "imports": [
+        "openai"
+      ],
+      "exports": [
+        "Message",
+        "Tool",
+        "Checkpoint",
+        "HistoryRecord",
+        "TaskCheckpoint",
+        "TaskStep",
+        "Blocker",
+        "Config"
+      ]
+    },
+    {
+      "path": "tsconfig.json",
+      "size": 472,
+      "mtime": "2026-06-22T02:37:05.015Z",
+      "functions": [],
+      "imports": [],
+      "exports": []
+    },
+    {
+      "path": "tools.ts",
+      "size": 9646,
+      "mtime": "2026-06-22T02:37:53.524Z",
+      "functions": [
+        "isCommandAllowed",
+        "normalizeFilePath",
+        "writeAuditLog",
+        "toolReadFile",
+        "toolWriteFile",
+        "isDangerousCommand",
+        "toolRunShell",
+        "toolGit",
+        "params",
+        "createBuiltinTools",
+        "toolsToOpenAIFormat",
+        "executeToolCall",
+        "extractFileFromArgs"
+      ],
+      "imports": [
+        "fs",
+        "path",
+        "child_process",
+        "openai",
+        "./types",
+        "./memory"
+      ],
+      "exports": [
+        "SHELL_TIMEOUT_MS",
+        "MAX_READ_FILE_SIZE",
+        "DANGEROUS_PATTERNS",
+        "SHELL_WHITELIST",
+        "isCommandAllowed",
+        "normalizeFilePath",
+        "isDangerousCommand",
+        "createBuiltinTools",
+        "toolsToOpenAIFormat",
+        "extractFileFromArgs"
+      ]
+    },
+    {
+      "path": "skills.ts",
+      "size": 5628,
+      "mtime": "2026-06-22T02:37:39.268Z",
+      "functions": [
+        "parseSkillLib",
+        "flush",
+        "loadSkills",
+        "reloadSkills",
+        "tokenize",
+        "scoreSkill",
+        "matchSkill",
+        "formatSkillForPrompt"
+      ],
+      "imports": [
+        "fs"
+      ],
+      "exports": [
+        "Skill",
+        "parseSkillLib",
+        "loadSkills",
+        "reloadSkills",
+        "tokenize",
+        "scoreSkill",
+        "matchSkill",
+        "formatSkillForPrompt"
+      ]
+    },
+    {
+      "path": "skill-lib.md",
+      "size": 492,
+      "mtime": "2026-06-22T00:19:25.046Z",
+      "functions": [],
+      "imports": [],
+      "exports": []
+    },
+    {
+      "path": "package.json",
+      "size": 853,
+      "mtime": "2026-06-22T04:09:29.633Z",
+      "functions": [],
+      "imports": [],
+      "exports": []
+    },
+    {
+      "path": "package-lock.json",
+      "size": 173622,
+      "mtime": "2026-06-22T04:09:37.082Z",
+      "functions": [],
+      "imports": [],
+      "exports": []
+    },
+    {
+      "path": "mimo-cli.ts",
+      "size": 7999,
+      "mtime": "2026-06-22T04:09:54.187Z",
+      "functions": [
+        "initOpenAI",
+        "main"
+      ],
+      "imports": [
+        "commander",
+        "./types",
+        "./src/router",
+        "./commands",
+        "chalk",
+        "./mcp-mode",
+        "./src/state",
+        "./src/config",
+        "./src/agent",
+        "./src/cli"
+      ],
+      "exports": []
+    },
+    {
+      "path": "memory.ts",
+      "size": 11441,
+      "mtime": "2026-06-22T04:09:08.516Z",
+      "functions": [
+        "ensureSessionsDir",
+        "getSessionDir",
+        "ensureSessionDir",
+        "getSessionFile",
+        "loadSessionIndex",
+        "saveSessionIndex",
+        "addOrUpdateSession",
+        "removeSession",
+        "getCheckpointFile",
+        "getHistoryFile",
+        "getCompressStateFile",
+        "getTaskCheckpointFile",
+        "readCheckpoint",
+        "writeCheckpoint",
+        "readMemory",
+        "appendMemory",
+        "readNotes",
+        "appendNote",
+        "initHistory",
+        "saveHistoryToFile",
+        "generateRecordId",
+        "rotateHistory",
+        "saveHistory",
+        "queryHistory",
+        "generateSessionId",
+        "readTaskCheckpoint",
+        "writeTaskCheckpoint",
+        "createTaskCheckpoint",
+        "addTaskStep",
+        "updateTaskStep",
+        "addModifiedFile",
+        "addBlocker"
+      ],
+      "imports": [
+        "fs",
+        "path",
+        "./types"
+      ],
+      "exports": [
+        "CHECKPOINT_FILE",
+        "MEMORY_FILE",
+        "NOTES_FILE",
+        "SKILL_LIB_FILE",
+        "HISTORY_FILE",
+        "TASK_CHECKPOINT_FILE",
+        "SessionEntry",
+        "ensureSessionsDir",
+        "getSessionDir",
+        "ensureSessionDir",
+        "getSessionFile",
+        "loadSessionIndex",
+        "saveSessionIndex",
+        "addOrUpdateSession",
+        "removeSession",
+        "getCheckpointFile",
+        "getHistoryFile",
+        "getCompressStateFile",
+        "getTaskCheckpointFile",
+        "HISTORY_MAX_RECORDS",
+        "HISTORY_KEEP_RECORDS",
+        "readCheckpoint",
+        "writeCheckpoint",
+        "readMemory",
+        "appendMemory",
+        "readNotes",
+        "appendNote",
+        "initHistory",
+        "saveHistoryToFile",
+        "generateRecordId",
+        "rotateHistory",
+        "saveHistory",
+        "queryHistory",
+        "generateSessionId",
+        "readTaskCheckpoint",
+        "writeTaskCheckpoint",
+        "createTaskCheckpoint",
+        "addTaskStep",
+        "updateTaskStep",
+        "addModifiedFile",
+        "addBlocker"
+      ]
+    },
+    {
+      "path": "mcp.ts",
+      "size": 4196,
+      "mtime": "2026-06-22T00:19:25.046Z",
+      "functions": [
+        "shellEscape",
+        "renderTemplate",
+        "mcpSpecToTool",
+        "loadMcpSpecs",
+        "validateSpec",
+        "loadMcpTools"
+      ],
+      "imports": [
+        "fs",
+        "path",
+        "./types"
+      ],
+      "exports": [
+        "McpToolSpec",
+        "renderTemplate",
+        "mcpSpecToTool",
+        "loadMcpSpecs",
+        "loadMcpTools"
+      ]
+    },
+    {
+      "path": "mcp-tools.example.json",
+      "size": 913,
+      "mtime": "2026-06-22T00:19:25.046Z",
+      "functions": [],
+      "imports": [],
+      "exports": []
+    },
+    {
+      "path": "mcp-mode.ts",
+      "size": 9535,
+      "mtime": "2026-06-22T03:09:37.939Z",
+      "functions": [
+        "initConfig",
+        "initOpenAI",
+        "mcpMode"
+      ],
+      "imports": [
+        "fs",
+        "./skills",
+        "./types",
+        "openai",
+        "./src/state"
+      ],
+      "exports": []
+    },
+    {
+      "path": "compress.ts",
+      "size": 12997,
+      "mtime": "2026-06-22T04:03:46.943Z",
+      "functions": [
+        "resolveContextWindow",
+        "isContextLengthError",
+        "msg",
+        "suggestMaxTokensAfterOverflow",
+        "loadCompressState",
+        "saveCompressState",
+        "saveStateFromMessages",
+        "estimateTokens",
+        "cjk",
+        "estimateMessageTokens",
+        "estimateTotalTokens",
+        "isSummaryMessage",
+        "parseSummaryLayer",
+        "generateSummary",
+        "splitMessages",
+        "summarizeHead",
+        "checkRollingWindow",
+        "compactRollingWindow",
+        "tieredCompact"
+      ],
+      "imports": [
+        "fs",
+        "openai",
+        "./types",
+        "./src/state"
+      ],
+      "exports": [
+        "COMPRESS_TIERS",
+        "MODEL_CONTEXT_WINDOWS",
+        "resolveContextWindow",
+        "RECENT_TURNS_STANDARD",
+        "RECENT_TURNS_URGENT",
+        "SummaryLayer",
+        "CompressState",
+        "isContextLengthError",
+        "suggestMaxTokensAfterOverflow",
+        "loadCompressState",
+        "saveCompressState",
+        "saveStateFromMessages",
+        "estimateTokens",
+        "estimateMessageTokens",
+        "estimateTotalTokens",
+        "isSummaryMessage",
+        "parseSummaryLayer",
+        "splitMessages",
+        "summarizeHead",
+        "checkRollingWindow"
+      ]
+    },
+    {
+      "path": "commands.ts",
+      "size": 28308,
+      "mtime": "2026-06-22T04:09:17.536Z",
+      "functions": [
+        "safeStoreApiKey",
+        "safeGetApiKey",
+        "createPrompt",
+        "interactiveConnect",
+        "handleConnect",
+        "handleCompact",
+        "handleDistill",
+        "handleDream",
+        "handleSkillCommand",
+        "loadProviders",
+        "saveProviders",
+        "getActiveProvider",
+        "handleProviderCommand",
+        "handleWindowCommand",
+        "handleTaskCommand",
+        "handleToolsCommand",
+        "handleSlashCommand",
+        "initMcpTools",
+        "getToolList"
+      ],
+      "imports": [
+        "fs",
+        "path",
+        "openai",
+        "./types",
+        "./src/state",
+        "./skills",
+        "./mcp",
+        "./src/ui",
+        "./src/indexer",
+        "./src/llm-core",
+        "readline"
+      ],
+      "exports": [
+        "SlashContext",
+        "ProviderEntry",
+        "loadProviders",
+        "initMcpTools",
+        "SLASH_COMMANDS",
+        "getToolList"
+      ]
+    },
+    {
+      "path": "README.md",
+      "size": 5934,
+      "mtime": "2026-06-22T02:58:45.604Z",
+      "functions": [],
+      "imports": [],
+      "exports": []
+    },
+    {
+      "path": "MEMORY.md",
+      "size": 137,
+      "mtime": "2026-06-22T00:19:25.045Z",
+      "functions": [],
+      "imports": [],
+      "exports": []
+    },
+    {
+      "path": "src/ui.ts",
+      "size": 2802,
+      "mtime": "2026-06-22T04:06:34.354Z",
+      "functions": [
+        "renderToolResult",
+        "renderAssistant",
+        "renderError",
+        "renderWarning",
+        "renderSuccess",
+        "renderInfo",
+        "renderProgress",
+        "renderDivider",
+        "renderCommandHint"
+      ],
+      "imports": [
+        "chalk"
+      ],
+      "exports": [
+        "renderToolResult",
+        "renderAssistant",
+        "renderError",
+        "renderWarning",
+        "renderSuccess",
+        "renderInfo",
+        "renderProgress",
+        "renderDivider",
+        "renderCommandHint"
+      ]
+    },
+    {
+      "path": "src/state.ts",
+      "size": 3485,
+      "mtime": "2026-06-22T04:09:34.904Z",
+      "functions": [],
+      "imports": [
+        "fs",
+        "openai",
+        "../types",
+        "../compress"
+      ],
+      "exports": [
+        "DEFAULT_MAX_RAW_TURNS",
+        "appState"
+      ]
+    },
+    {
+      "path": "src/router.ts",
+      "size": 5367,
+      "mtime": "2026-06-22T03:41:27.049Z",
+      "functions": [
+        "idx",
+        "msg"
+      ],
+      "imports": [
+        "./llm"
+      ],
+      "exports": [
+        "ProviderConfig",
+        "ProviderStatus",
+        "ProviderRouter"
+      ]
+    },
+    {
+      "path": "src/llm.ts",
+      "size": 2106,
+      "mtime": "2026-06-22T03:10:24.085Z",
+      "functions": [
+        "createLLMProvider"
+      ],
+      "imports": [
+        "openai",
+        "../types"
+      ],
+      "exports": [
+        "ChatParams",
+        "ChatResponse",
+        "LLMProvider",
+        "OpenAIProvider",
+        "createLLMProvider"
+      ]
+    },
+    {
+      "path": "src/llm-core.ts",
+      "size": 9078,
+      "mtime": "2026-06-22T04:04:05.957Z",
+      "functions": [
+        "classifyLLMError",
+        "msg",
+        "callLLMWithTimeout",
+        "handleContextLengthError",
+        "callLLMSingle",
+        "handleContextLengthAndRetry",
+        "retryWithBackoff",
+        "callLLM",
+        "getMemoryMTime",
+        "buildSystemPrompt",
+        "compactContext"
+      ],
+      "imports": [
+        "fs",
+        "../skills",
+        "../types",
+        "./state",
+        "openai"
+      ],
+      "exports": [
+        "LLM_TIMEOUT_MS",
+        "LLM_MAX_RETRIES",
+        "classifyLLMError",
+        "getMemoryMTime",
+        "buildSystemPrompt"
+      ]
+    },
+    {
+      "path": "src/indexer.ts",
+      "size": 3619,
+      "mtime": "2026-06-22T04:08:39.552Z",
+      "functions": [
+        "scanProject",
+        "extractFunctions",
+        "name",
+        "extractImports",
+        "extractExports",
+        "loadIndex",
+        "searchIndex"
+      ],
+      "imports": [
+        "fs",
+        "path",
+        "glob"
+      ],
+      "exports": [
+        "FileIndex",
+        "ProjectIndex",
+        "name",
+        "loadIndex",
+        "searchIndex"
+      ]
+    },
+    {
+      "path": "src/config.ts",
+      "size": 4004,
+      "mtime": "2026-06-22T03:20:03.833Z",
+      "functions": [
+        "loadEnvFile",
+        "findEnvPath",
+        "loadConfig"
+      ],
+      "imports": [
+        "zod",
+        "dotenv",
+        "fs",
+        "path"
+      ],
+      "exports": [
+        "ConfigResult",
+        "loadConfig"
+      ]
+    },
+    {
+      "path": "src/cli.ts",
+      "size": 2807,
+      "mtime": "2026-06-22T04:04:10.219Z",
+      "functions": [
+        "startCLI",
+        "completer",
+        "showSlashHint"
+      ],
+      "imports": [
+        "readline",
+        "./state",
+        "../commands",
+        "./ui"
+      ],
+      "exports": [
+        "CLIOptions"
+      ]
+    },
+    {
+      "path": "src/agent.ts",
+      "size": 7123,
+      "mtime": "2026-06-22T04:04:38.890Z",
+      "functions": [
+        "formatTimeShort",
+        "indentBlock",
+        "previewResult",
+        "handleToolCalls",
+        "runAgent",
+        "toolCalls"
+      ],
+      "imports": [
+        "./state",
+        "openai",
+        "../types",
+        "./llm-core"
+      ],
+      "exports": []
+    },
+    {
+      "path": "docs/plan.md",
+      "size": 7315,
+      "mtime": "2026-06-22T02:06:36.110Z",
+      "functions": [],
+      "imports": [],
+      "exports": []
+    },
+    {
+      "path": "docs/mcp-guide.md",
+      "size": 5122,
+      "mtime": "2026-06-22T02:06:36.110Z",
+      "functions": [],
+      "imports": [],
+      "exports": []
+    },
+    {
+      "path": "docs/features.md",
+      "size": 18017,
+      "mtime": "2026-06-22T02:06:36.110Z",
+      "functions": [
+        "mcpMode",
+        "normalizePath",
+        "saveApiKey",
+        "loadApiKey",
+        "loadConfig",
+        "loadProviders",
+        "renderToolCall",
+        "renderAssistant",
+        "callLLMStream",
+        "indexProject",
+        "askProject",
+        "suggestRefactor"
+      ],
+      "imports": [
+        "electron",
+        "zod",
+        "chalk",
+        "./cli-utils"
+      ],
+      "exports": [
+        "SlashContext",
+        "Config",
+        "loadConfig"
+      ]
+    },
+    {
+      "path": "bin/mi-cc.js",
+      "size": 5398,
+      "mtime": "2026-06-22T02:11:25.322Z",
+      "functions": [
+        "findEnvPath",
+        "createPrompt",
+        "setupWizard",
+        "main",
+        "resolveTsxCliPath"
+      ],
+      "imports": [],
+      "exports": []
+    },
+    {
+      "path": "__tests__/tools.test.ts",
+      "size": 1417,
+      "mtime": "2026-06-22T02:39:36.623Z",
+      "functions": [],
+      "imports": [
+        "vitest"
+      ],
+      "exports": []
+    },
+    {
+      "path": "__tests__/skills.test.ts",
+      "size": 2375,
+      "mtime": "2026-06-22T02:40:02.270Z",
+      "functions": [],
+      "imports": [
+        "vitest",
+        "../skills"
+      ],
+      "exports": []
+    },
+    {
+      "path": "__tests__/compress.test.ts",
+      "size": 5064,
+      "mtime": "2026-06-22T02:37:27.197Z",
+      "functions": [],
+      "imports": [
+        "vitest",
+        "../types"
+      ],
+      "exports": []
+    }
+  ]
+}

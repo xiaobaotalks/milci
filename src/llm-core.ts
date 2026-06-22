@@ -8,6 +8,8 @@ import {
   tieredCompact,
   estimateTotalTokens,
   saveStateFromMessages,
+  compactRollingWindow,
+  checkRollingWindow,
 } from '../compress';
 import { matchSkill, formatSkillForPrompt } from '../skills';
 import type { Message } from '../types';
@@ -73,7 +75,7 @@ export async function handleContextLengthError(reducedMax: number): Promise<void
   );
   if (result.changed) {
     appState.set('conversationHistory', result.messages);
-    saveStateFromMessages(appState.get('conversationHistory'));
+    saveStateFromMessages(appState.get('conversationHistory'), appState.get('currentSessionId'));
   }
   appendNote(`[LLM] 上下文超限，已将 maxTokens 降至 ${reducedMax}`);
 }
@@ -182,7 +184,7 @@ export function buildSystemPrompt(currentUserInput?: string): string {
 
   const memory = readMemory();
   const notes = readNotes();
-  const checkpoint = readCheckpoint();
+  const checkpoint = readCheckpoint(appState.get('currentSessionId'));
   const skillLib = fs.existsSync(SKILL_LIB_FILE) ? fs.readFileSync(SKILL_LIB_FILE, 'utf-8') : '';
 
   let systemPrompt = `你是一个智能编程助手 mi-cc。
@@ -237,24 +239,33 @@ ${appState.get('tools').map(t => `- ${t.name}: ${t.description}${t.source === 'm
 // ==================== 上下文压缩 ====================
 
 export async function compactContext(): Promise<void> {
+  const totalTokens = estimateTotalTokens(appState.get('conversationHistory'));
+  const maxTokens = appState.get('config').maxTokens;
+  const ratio = totalTokens / maxTokens;
+
+  // 1. 滚动窗口检查（轻量，优先执行）
+  if (checkRollingWindow()) {
+    await compactRollingWindow(appState.get('openai'), appState.get('config').model);
+  }
+
+  // 2. 现有比例检查（保留）
   const result = await tieredCompact(
     appState.get('openai'),
     appState.get('config').model,
     appState.get('conversationHistory'),
-    appState.get('config').maxTokens,
+    maxTokens,
     (msg) => console.log(msg),
   );
 
   if (!result.changed) {
     if (result.tier === 'none') {
-      const total = estimateTotalTokens(appState.get('conversationHistory'));
-      console.log(`[压缩] 当前 token ${total}，无需压缩`);
+      console.log(`[压缩] 当前 token ${totalTokens}，无需压缩`);
     }
     return;
   }
 
   appState.set('conversationHistory', result.messages);
-  saveStateFromMessages(appState.get('conversationHistory'));
+  saveStateFromMessages(appState.get('conversationHistory'), appState.get('currentSessionId'));
   console.log(`[压缩] 完成 (${result.tier})，当前 token ${estimateTotalTokens(appState.get('conversationHistory'))}`);
   appendNote(`上下文压缩完成（${result.tier}），剩余 token: ${estimateTotalTokens(appState.get('conversationHistory'))}`);
 }

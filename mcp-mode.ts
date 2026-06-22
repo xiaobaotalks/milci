@@ -84,7 +84,7 @@ export async function mcpMode(): Promise<void> {
   const tools: Tool[] = createBuiltinTools();
   initMcpTools(tools, (cmd, timeout) => toolRunShell({ command: cmd, timeout }));
   const sessionId = generateSessionId();
-  const historyData = initHistory();
+  const historyData = initHistory(sessionId);
 
   // 初始化 appState
   appState.init({

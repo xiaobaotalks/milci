@@ -14,6 +14,8 @@
 import * as fs from 'fs';
 import OpenAI from 'openai';
 import type { Message } from './types';
+import { appState } from './src/state';
+import { getCompressStateFile } from './memory';
 
 export const COMPRESS_TIERS = {
   SOFT: 0.6,
@@ -86,13 +88,12 @@ export function suggestMaxTokensAfterOverflow(contextWindow: number): number {
   return Math.floor(contextWindow * 0.9);
 }
 
-const STATE_FILE = 'compress-state.json';
-
 /** 加载压缩状态 */
-export function loadCompressState(): CompressState {
+export function loadCompressState(sessionId?: string): CompressState {
+  const file = getCompressStateFile(sessionId);
   try {
-    if (fs.existsSync(STATE_FILE)) {
-      const data = fs.readFileSync(STATE_FILE, 'utf-8');
+    if (fs.existsSync(file)) {
+      const data = fs.readFileSync(file, 'utf-8');
       return JSON.parse(data);
     }
   } catch {
@@ -102,21 +103,22 @@ export function loadCompressState(): CompressState {
 }
 
 /** 保存压缩状态 */
-export function saveCompressState(state: CompressState): void {
+export function saveCompressState(state: CompressState, sessionId?: string): void {
+  const file = getCompressStateFile(sessionId);
   try {
-    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf-8');
+    fs.writeFileSync(file, JSON.stringify(state, null, 2), 'utf-8');
   } catch {
     // ignore
   }
 }
 
 /** 从消息列表中提取摘要层并持久化 */
-export function saveStateFromMessages(messages: Message[]): void {
+export function saveStateFromMessages(messages: Message[], sessionId?: string): void {
   const { headSummaries } = splitMessages(messages);
   const layers = headSummaries
     .map(parseSummaryLayer)
     .filter((s): s is SummaryLayer => !!s);
-  saveCompressState({ summaries: layers });
+  saveCompressState({ summaries: layers }, sessionId);
 }
 
 /** 更准确的 token 估算 */
@@ -223,6 +225,74 @@ export function summarizeHead(headSummaries: Message[]): Array<{ kind: 'summary'
     .map(parseSummaryLayer)
     .filter((s): s is SummaryLayer => !!s)
     .map(s => ({ kind: 'summary' as const, content: `L${s.level}: ${s.text}` }));
+}
+
+/**
+ * 检查是否需要触发滚动窗口压缩
+ * 当原始消息超过 maxRawTurns * 2（用户+助手各一轮=2条消息）时触发
+ */
+export function checkRollingWindow(): boolean {
+  const rawMessages = appState.getRawMessages();
+  const maxRaw = appState.maxRawTurns * 2; // 每轮包含 user + assistant
+  return rawMessages.length > maxRaw;
+}
+
+/**
+ * 执行滚动窗口压缩：将超窗的原始消息压缩为摘要
+ */
+export async function compactRollingWindow(openai: OpenAI, model: string): Promise<void> {
+  if (!checkRollingWindow()) return;
+
+  const rawMessages = appState.getRawMessages();
+  const maxRaw = appState.maxRawTurns * 2;
+  const excessCount = rawMessages.length - maxRaw;
+
+  // 取超出的消息进行压缩
+  const messagesToCompress = rawMessages.slice(0, excessCount);
+  const remainingRaw = rawMessages.slice(excessCount);
+
+  console.log(`[滚动窗口] 原始消息 ${rawMessages.length} 条，超出 ${excessCount} 条，触发压缩...`);
+
+  // 构建压缩提示
+  const compressPrompt: Message = {
+    role: 'system',
+    content: `请将以下对话历史压缩为简洁的摘要，保留关键信息和决策：
+
+${messagesToCompress.map(m => `${m.role}: ${m.content}`).join('\n')}`,
+  };
+
+  const response = await openai.chat.completions.create({
+    model,
+    messages: [compressPrompt] as unknown as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+    max_tokens: 500,
+  });
+
+  const summaryText = response.choices[0].message.content || '';
+
+  // 计算新摘要的 level
+  const existingSummaries = appState.getSummaryMessages();
+  const newLevel = existingSummaries.length > 0
+    ? Math.max(...existingSummaries.map(parseSummaryLayer).map(s => s?.level ?? -1)) + 1
+    : 0;
+
+  const summaryMessage: Message = {
+    role: 'system',
+    content: `[历史摘要 L${newLevel} @ ${new Date().toISOString()}]\n${summaryText}`,
+  };
+
+  // 更新 conversationHistory：保留摘要层 + 保留的原始消息
+  const newHistory = [
+    ...existingSummaries,
+    summaryMessage,
+    ...remainingRaw,
+  ];
+
+  appState.set('conversationHistory', newHistory);
+
+  // 持久化
+  saveStateFromMessages(newHistory, appState.get('currentSessionId'));
+
+  console.log(`[滚动窗口] 已压缩 ${excessCount} 条消息为 L${newLevel} 摘要`);
 }
 
 /**

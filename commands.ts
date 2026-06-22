@@ -22,7 +22,17 @@ import {
   saveHistoryToFile,
   MEMORY_FILE,
   SKILL_LIB_FILE,
+  readTaskCheckpoint,
+  writeTaskCheckpoint,
+  createTaskCheckpoint,
+  loadSessionIndex,
+  saveSessionIndex,
+  addOrUpdateSession,
+  removeSession,
 } from './memory';
+import { renderSuccess, renderError, renderWarning, renderInfo } from './src/ui';
+import { scanProject, loadIndex, searchIndex } from './src/indexer';
+import { callLLM } from './src/llm-core';
 
 // ==================== 上下文接口 ====================
 
@@ -189,7 +199,7 @@ async function interactiveConnect(ctx: SlashContext): Promise<void> {
     // 输入 API Key（隐藏输入）
     const apiKey = await createPrompt(rl, '请输入 API Key: ');
     if (!apiKey) {
-      console.log('❌ API Key 不能为空，配置取消');
+      renderError('API Key 不能为空，配置取消');
       return;
     }
 
@@ -230,7 +240,7 @@ async function interactiveConnect(ctx: SlashContext): Promise<void> {
 
     const confirm = await createPrompt(rl, '确认保存? (Y/n): ');
     if (confirm.toLowerCase() === 'n') {
-      console.log('❌ 配置已取消');
+      renderError('配置已取消');
       return;
     }
 
@@ -246,9 +256,9 @@ async function interactiveConnect(ctx: SlashContext): Promise<void> {
       if (stored) {
         // 从 .env 中移除 API Key，替换为占位符
         apiKeyToStore = '[SECURED]';
-        console.log('✅ API Key 已加密存储');
+        renderSuccess('API Key 已加密存储');
       } else {
-        console.log('⚠️ 安全存储不可用，Key 已明文保存到 .env');
+        renderWarning('安全存储不可用，Key 已明文保存到 .env');
       }
     }
 
@@ -274,21 +284,21 @@ MAX_TOKEN=${ctx.config.maxTokens}
 `;
     fs.writeFileSync('.env', envContent, 'utf-8');
 
-    console.log('\n✅ 配置已更新并保存到 .env');
-    console.log(`   当前使用: ${provider.name} / ${model}`);
+    renderSuccess('配置已更新并保存到 .env');
+    renderInfo('当前使用:', `${provider.name} / ${model}`);
 
     // 测试连接
-    console.log('\n🔄 正在测试连接...');
+    renderInfo('正在测试连接...', '');
     try {
       const testResponse = await ctx.openai.chat.completions.create({
         model: ctx.config.model,
         messages: [{ role: 'user', content: 'hi' }],
         max_tokens: 5,
       });
-      console.log('✅ 连接测试成功!');
+      renderSuccess('连接测试成功!');
     } catch (error) {
-      console.log(`⚠️ 连接测试失败: ${(error as Error).message}`);
-      console.log('   配置已保存，但请检查 API Key 和 Base URL 是否正确');
+      renderWarning(`连接测试失败: ${(error as Error).message}`);
+      renderInfo('提示:', '配置已保存，但请检查 API Key 和 Base URL 是否正确');
     }
 
   } finally {
@@ -345,7 +355,7 @@ async function handleCompact(ctx: SlashContext): Promise<void> {
 
   if (result.changed) {
     appState.set('conversationHistory', result.messages);
-    saveStateFromMessages(appState.get('conversationHistory'));
+    saveStateFromMessages(appState.get('conversationHistory'), appState.get('currentSessionId'));
     const afterTokens = estimateTotalTokens(appState.get('conversationHistory'));
     console.log(`[手动压缩] 完成 (${result.tier}): ${beforeTokens} -> ${afterTokens} tokens`);
   } else {
@@ -358,7 +368,7 @@ async function handleCompact(ctx: SlashContext): Promise<void> {
 async function handleDistill(ctx: SlashContext): Promise<void> {
   console.log('[蒸馏] 开始经验蒸馏...');
 
-  const checkpoint = readCheckpoint();
+  const checkpoint = readCheckpoint(appState.get('currentSessionId'));
   const memory = readMemory();
   const history = queryHistory(appState.get('historyData'), appState.get('currentSessionId'));
 
@@ -433,7 +443,7 @@ ${memory}
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const beforeCount = appState.get('historyData').length;
     appState.set('historyData', appState.get('historyData').filter(r => r.time >= sevenDaysAgo));
-    saveHistoryToFile(appState.get('historyData'));
+    saveHistoryToFile(appState.get('historyData'), appState.get('currentSessionId'));
     console.log(`[Dream] 过期日志已清理: ${beforeCount} -> ${appState.get('historyData').length}`);
   } catch (error) {
     console.log(`[Dream] 失败: ${error}`);
@@ -619,6 +629,131 @@ MAX_TOKEN=${ctx.config.maxTokens}
   }
 }
 
+// ==================== /window ====================
+
+function handleWindowCommand(args: string[]): void {
+  const sub = args[0] || 'status';
+  if (sub === 'status') {
+    const raw = appState.getRawMessages();
+    const summaries = appState.getSummaryMessages();
+    console.log(`[窗口] 原始消息: ${raw.length} 条 (上限: ${appState.maxRawTurns * 2})`);
+    console.log(`[窗口] 摘要层: ${summaries.length} 层`);
+    console.log(`[窗口] 总消息: ${appState.get('conversationHistory').length} 条`);
+  }
+  if (sub === 'set') {
+    const n = parseInt(args[1], 10);
+    if (n > 0) {
+      appState.maxRawTurns = n;
+      console.log(`[窗口] 已设置最大原始轮数为 ${n}`);
+    } else {
+      console.log('[窗口] 用法: /window set <正整数>');
+    }
+  }
+}
+
+// ==================== /task ====================
+
+function handleTaskCommand(args: string[]): void {
+  const sub = args[0] || 'status';
+  const taskCheckpoint = readTaskCheckpoint(appState.get('currentSessionId'));
+  if (!taskCheckpoint) {
+    console.log('[任务] 无活动任务');
+    return;
+  }
+  if (sub === 'status') {
+    console.log(`[任务] ${taskCheckpoint.goal}`);
+    console.log(`  进度: ${taskCheckpoint.currentStep}/${taskCheckpoint.totalSteps}`);
+    console.log(`  修改文件: ${taskCheckpoint.modifiedFiles.length} 个`);
+    console.log(`  阻塞: ${taskCheckpoint.blockers.length} 个`);
+  }
+  if (sub === 'steps') {
+    for (const s of taskCheckpoint.steps) {
+      const icon = s.status === 'done' ? '✓' : s.status === 'failed' ? '✗' : '○';
+      console.log(`  ${icon} Step ${s.id}: ${s.description}`);
+    }
+  }
+  if (sub === 'reset') {
+    writeTaskCheckpoint(createTaskCheckpoint(appState.get('currentSessionId'), '新任务'), appState.get('currentSessionId'));
+    console.log('[任务] 已重置');
+  }
+}
+
+// ==================== /session ====================
+
+function handleSessionCommand(args: string[]): void {
+  const sub = args[0] || 'list';
+
+  if (sub === 'list') {
+    const index = loadSessionIndex();
+    if (index.length === 0) {
+      console.log('[会话] 暂无历史会话');
+      return;
+    }
+    console.log(`[会话] 共 ${index.length} 个：`);
+    for (const s of index) {
+      const active = s.id === appState.get('currentSessionId') ? ' ● 当前' : '';
+      console.log(`  ${s.id} | ${s.task.substring(0, 30)}... | ${s.messageCount} 条 | ${s.lastActiveAt.substring(0, 10)}${active}`);
+    }
+    return;
+  }
+
+  if (sub === 'switch') {
+    const id = args[1];
+    if (!id) {
+      console.log('[会话] 用法: /session switch <id>');
+      return;
+    }
+    appState.switchSession(id);
+    console.log(`[会话] 已切换到: ${id}`);
+    return;
+  }
+
+  if (sub === 'new') {
+    const task = args.slice(1).join(' ') || '新会话';
+    const id = `s_${Date.now()}`;
+    appState.switchSession(id);
+    addOrUpdateSession(id, task, 0);
+    console.log(`[会话] 已创建: ${id}`);
+    return;
+  }
+
+  if (sub === 'rename') {
+    const id = args[1];
+    const task = args.slice(2).join(' ');
+    if (!id || !task) {
+      console.log('[会话] 用法: /session rename <id> <新名称>');
+      return;
+    }
+    const index = loadSessionIndex();
+    const s = index.find(entry => entry.id === id);
+    if (s) {
+      s.task = task;
+      saveSessionIndex(index);
+      console.log(`[会话] 已重命名: ${id} → ${task}`);
+    } else {
+      console.log(`[会话] 未找到: ${id}`);
+    }
+    return;
+  }
+
+  if (sub === 'remove') {
+    const id = args[1];
+    if (!id) {
+      console.log('[会话] 用法: /session remove <id>');
+      return;
+    }
+    if (removeSession(id)) {
+      console.log(`[会话] 已删除: ${id}`);
+    } else {
+      console.log(`[会话] 未找到: ${id}`);
+    }
+    return;
+  }
+
+  console.log(`[会话] 未知子命令: ${sub}`);
+  console.log('用法: /session list | switch <id> | new [名称] | rename <id> <名称> | remove <id>');
+}
+
 // ==================== /tools ====================
 
 function handleToolsCommand(ctx: SlashContext): void {
@@ -662,9 +797,61 @@ export async function handleSlashCommand(ctx: SlashContext, input: string): Prom
       handleProviderCommand(ctx, args);
       return true;
 
+    case '/window':
+      handleWindowCommand(args);
+      return true;
+
+    case '/task':
+      handleTaskCommand(args);
+      return true;
+
+    case '/session':
+      handleSessionCommand(args);
+      return true;
+
     case '/tools':
       handleToolsCommand(ctx);
       return true;
+
+    case '/index': {
+      await scanProject();
+      return true;
+    }
+
+    case '/ask': {
+      const question = args.join(' ');
+      if (!question) {
+        console.log('[问答] 用法: /ask <问题>');
+        return true;
+      }
+
+      const index = loadIndex();
+      if (!index) {
+        console.log('[问答] 未找到索引，请先运行 /index');
+        return true;
+      }
+
+      const results = searchIndex(question, index);
+      if (results.length === 0) {
+        console.log('[问答] 未找到相关文件');
+        return true;
+      }
+
+      const topFiles = results.slice(0, 5);
+      const context = topFiles.map(f =>
+        `## ${f.path}\n导出: ${f.exports.slice(0, 10).join(', ')}\n函数: ${f.functions.slice(0, 10).join(', ')}`
+      ).join('\n\n');
+
+      console.log(`[问答] 基于 ${topFiles.length} 个文件回答...`);
+
+      const response = await callLLM([
+        { role: 'system', content: '你是一个代码助手，基于提供的项目文件信息回答问题。' },
+        { role: 'user', content: `项目文件信息:\n${context}\n\n问题: ${question}` },
+      ]);
+
+      console.log(`\n💬 ${response.content}\n`);
+      return true;
+    }
 
     case '/exit':
     case '/quit':
@@ -676,11 +863,16 @@ export async function handleSlashCommand(ctx: SlashContext, input: string): Prom
 可用命令:
   /connect [api_key] [base_url] [model]  - 设置 API 配置（无参数启动交互向导）
   /provider [list|save|switch|remove]    - 管理多模型 Provider 配置
+  /session [list|switch|new|rename|remove] - 管理多会话
   /compact                               - 手动压缩上下文
   /distill                               - 经验蒸馏，生成技能库
   /dream                                 - 记忆整理
   /skill [list|<name>|reload]            - 查看/刷新技能库
+  /window [status|set <n>]               - 查看/设置滚动窗口
+  /task [status|steps|reset]             - 查看/管理任务级 checkpoint
   /tools                                 - 查看所有可用工具
+  /index                                 - 扫描项目并生成代码索引
+  /ask <问题>                            - 基于索引回答代码库问题
   /exit                                  - 退出程序
   /help                                  - 显示帮助
 `);
@@ -722,7 +914,12 @@ export const SLASH_COMMANDS: Array<{ name: string; description: string; subArgs?
   { name: '/distill', description: '经验蒸馏，生成技能库' },
   { name: '/dream', description: '记忆整理' },
   { name: '/skill', description: '查看/刷新技能库', subArgs: ['list', '<name>', 'reload'] },
+  { name: '/window', description: '查看/设置滚动窗口', subArgs: ['status', 'set'] },
+  { name: '/task', description: '查看/管理任务级 checkpoint', subArgs: ['status', 'steps', 'reset'] },
+  { name: '/session', description: '管理多会话', subArgs: ['list', 'switch', 'new', 'rename', 'remove'] },
   { name: '/tools', description: '查看所有可用工具' },
+  { name: '/index', description: '扫描项目并生成代码索引' },
+  { name: '/ask', description: '基于索引回答代码库问题', subArgs: ['<问题>'] },
   { name: '/exit', description: '退出程序' },
   { name: '/quit', description: '退出程序（别名）' },
   { name: '/help', description: '显示帮助' },

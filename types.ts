@@ -41,6 +41,36 @@ export interface HistoryRecord {
   time: string;
 }
 
+/** 任务级检查点 */
+export interface TaskCheckpoint {
+  sessionId: string;
+  goal: string;
+  steps: TaskStep[];
+  currentStep: number;
+  totalSteps: number;
+  modifiedFiles: string[];
+  blockers: Blocker[];
+  lastUpdated: string;
+}
+
+/** 任务步骤 */
+export interface TaskStep {
+  id: number;
+  description: string;
+  status: 'pending' | 'in_progress' | 'done' | 'failed';
+  result?: string;
+  toolCalls?: string[];
+  startedAt?: string;
+  completedAt?: string;
+}
+
+/** 阻塞记录 */
+export interface Blocker {
+  stepId: number;
+  reason: string;
+  timestamp: string;
+}
+
 /** 运行时配置 */
 export interface Config {
   apiKey: string;

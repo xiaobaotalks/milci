@@ -12,12 +12,23 @@ import {
 import {
   writeCheckpoint,
   saveHistory,
+  readTaskCheckpoint,
+  writeTaskCheckpoint,
+  createTaskCheckpoint,
+  addTaskStep,
+  updateTaskStep,
+  addModifiedFile,
 } from '../memory';
 import { appState } from './state';
 import OpenAI from 'openai';
 import type { Message } from '../types';
 
 import { callLLM, buildSystemPrompt, compactContext } from './llm-core';
+import {
+  renderToolResult,
+  renderAssistant,
+  renderWarning,
+} from './ui';
 
 // ==================== 常量 ====================
 
@@ -53,7 +64,7 @@ export async function handleToolCalls(message: OpenAI.Chat.Completions.ChatCompl
   const results: string[] = [];
   let lastFile = ''; // 需要从 checkpoint 读取，延迟导入避免循环依赖
   const { readCheckpoint } = await import('../memory');
-  const checkpoint = readCheckpoint();
+  const checkpoint = readCheckpoint(appState.get('currentSessionId'));
   if (checkpoint) {
     lastFile = checkpoint.currentFile || '';
   }
@@ -76,20 +87,12 @@ export async function handleToolCalls(message: OpenAI.Chat.Completions.ChatCompl
     const bot = isMulti ? '└─' : '──';
     const cont = isMulti ? '│' : ' ';
 
-    console.log(`${top} [${formatTimeShort()}] 🔧 ${toolName}(${JSON.stringify(args)})`);
-
     const t0 = Date.now();
     const result = await executeToolCall(appState.get('tools'), toolName, args);
     const elapsed = Date.now() - t0;
     results.push(result);
 
-    const isError = result.startsWith('错误:') || result.startsWith('命令执行错误:') || result.startsWith('读取失败') || result.startsWith('写入失败');
-    const status = isError ? '✗ 失败' : '✓ 成功';
-    const lines = result.split('\n').length;
-    console.log(`${mid} [${formatTimeShort()}] ${status} (${elapsed}ms, ${result.length} 字符, ${lines} 行)`);
-    console.log(`${cont} ${indentBlock(previewResult(result), isMulti ? '│ ' : '  ').trimStart()}`);
-
-    if (isMulti) console.log(bot);
+    renderToolResult(toolName, args, previewResult(result), elapsed);
 
     const file = extractFileFromArgs(toolName, args);
     if (file) lastFile = file;
@@ -102,7 +105,7 @@ export async function handleToolCalls(message: OpenAI.Chat.Completions.ChatCompl
       result: result.substring(0, 200),
       stage: '执行中',
       time: new Date().toISOString(),
-    });
+    }, appState.get('currentSessionId'));
   }
 
   return results;
@@ -111,6 +114,17 @@ export async function handleToolCalls(message: OpenAI.Chat.Completions.ChatCompl
 // ==================== Agent 主循环 ====================
 
 export async function runAgent(userInput: string): Promise<void> {
+  // 读取或创建任务级 checkpoint
+  let taskCheckpoint = readTaskCheckpoint(appState.get('currentSessionId'));
+  if (!taskCheckpoint || taskCheckpoint.sessionId !== appState.get('currentSessionId')) {
+    taskCheckpoint = createTaskCheckpoint(appState.get('currentSessionId'), userInput);
+  }
+
+  // 添加用户输入作为新步骤
+  const step = addTaskStep(taskCheckpoint, `用户输入: ${userInput}`);
+  updateTaskStep(taskCheckpoint, step.id, { status: 'in_progress' });
+  writeTaskCheckpoint(taskCheckpoint, appState.get('currentSessionId'));
+
   appState.get('conversationHistory').push({ role: 'user', content: userInput });
   appState.set('historyData', saveHistory(appState.get('historyData'), appState.get('currentSessionId'), 'user', userInput));
 
@@ -129,7 +143,7 @@ export async function runAgent(userInput: string): Promise<void> {
     appState.set('historyData', saveHistory(appState.get('historyData'), appState.get('currentSessionId'), 'assistant', response.content || JSON.stringify(response)));
 
     if (response.content) {
-      console.log(`\n[${formatTimeShort()}] 💬 [助手]\n${response.content}\n`);
+      renderAssistant(response.content);
     }
 
     const toolCalls = (response as OpenAI.Chat.Completions.ChatCompletionMessage).tool_calls;
@@ -139,11 +153,34 @@ export async function runAgent(userInput: string): Promise<void> {
 
     iterations++;
     if (iterations > MAX_TOOL_ITERATIONS) {
-      console.log(`[警告] 已达到最大工具调用轮数 (${MAX_TOOL_ITERATIONS})，强制停止`);
+      renderWarning(`已达到最大工具调用轮数 (${MAX_TOOL_ITERATIONS})，强制停止`);
       break;
     }
 
+    // 为每个 tool call 创建步骤
+    for (const tc of toolCalls) {
+      const toolStep = addTaskStep(taskCheckpoint, `工具调用: ${tc.function.name}`);
+      updateTaskStep(taskCheckpoint, toolStep.id, { status: 'in_progress' });
+    }
+    writeTaskCheckpoint(taskCheckpoint, appState.get('currentSessionId'));
+
     const results = await handleToolCalls(response as OpenAI.Chat.Completions.ChatCompletionMessage);
+
+    // 更新步骤状态
+    for (let i = 0; i < toolCalls.length; i++) {
+      const toolStep = taskCheckpoint.steps[taskCheckpoint.steps.length - toolCalls.length + i];
+      updateTaskStep(taskCheckpoint, toolStep.id, {
+        status: 'done',
+        result: results[i].substring(0, 200),
+      });
+
+      // 检测文件修改
+      if (toolCalls[i].function.name === 'writeFile') {
+        const args = JSON.parse(toolCalls[i].function.arguments);
+        addModifiedFile(taskCheckpoint, args.path);
+      }
+    }
+    writeTaskCheckpoint(taskCheckpoint, appState.get('currentSessionId'));
 
     for (let i = 0; i < toolCalls.length; i++) {
       appState.get('conversationHistory').push({
@@ -160,6 +197,11 @@ export async function runAgent(userInput: string): Promise<void> {
     response = await callLLM(nextMessages);
   }
 
+  // 完成时更新 checkpoint
+  updateTaskStep(taskCheckpoint, step.id, { status: 'done' });
+  writeTaskCheckpoint(taskCheckpoint, appState.get('currentSessionId'));
+
+  // 同时写入旧的 checkpoint（兼容）
   writeCheckpoint({
     sessionId: appState.get('currentSessionId'),
     task: userInput.substring(0, 100),
@@ -168,5 +210,5 @@ export async function runAgent(userInput: string): Promise<void> {
     result: response.content?.substring(0, 200) || '',
     stage: '完成',
     time: new Date().toISOString(),
-  });
+  }, appState.get('currentSessionId'));
 }

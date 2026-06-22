@@ -7,6 +7,7 @@ import * as readline from 'readline';
 import { appState } from './state';
 import { handleSlashCommand, SLASH_COMMANDS } from '../commands';
 import type { SlashContext } from '../commands';
+import { renderError, renderCommandHint } from './ui';
 
 export interface CLIOptions {
   onUserInput: (input: string) => Promise<void>;
@@ -44,7 +45,8 @@ export async function startCLI(options: CLIOptions): Promise<void> {
       const sub = c.subArgs ? ` ${c.subArgs.join(' | ')}` : '';
       console.log(`  ${c.name.padEnd(12)} ${c.description}${sub}`);
     }
-    console.log('提示: 输入 / 后按 Tab 可补全命令\n');
+    renderCommandHint();
+    console.log();
   };
 
   const rl = readline.createInterface({
@@ -80,7 +82,7 @@ export async function startCLI(options: CLIOptions): Promise<void> {
     try {
       await onUserInput(trimmed);
     } catch (error) {
-      console.log(`[错误] ${error}`);
+      renderError(String(error));
     }
 
     rl.prompt();

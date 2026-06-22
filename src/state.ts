@@ -1,7 +1,18 @@
+import * as fs from 'fs';
 import type OpenAI from 'openai';
 import type { Message, Tool, HistoryRecord, Config } from '../types';
+import { isSummaryMessage } from '../compress';
+import {
+  addOrUpdateSession,
+  ensureSessionDir,
+  getSessionFile,
+  readCheckpoint,
+  initHistory,
+} from '../memory';
 
 // ========== AppState 单例 ==========
+
+export const DEFAULT_MAX_RAW_TURNS = 20;
 
 class AppState {
   private static _instance: AppState;
@@ -13,6 +24,7 @@ class AppState {
   conversationHistory: Message[] = [];
   tools!: Tool[];
   historyData: HistoryRecord[] = [];
+  maxRawTurns: number = DEFAULT_MAX_RAW_TURNS;
 
   // 变更订阅
   private _listeners: Map<string, Set<(value: unknown) => void>> = new Map();
@@ -71,6 +83,41 @@ class AppState {
   clearHistory(): void {
     const systemMsgs = this.conversationHistory.filter(m => m.role === 'system');
     this.conversationHistory = systemMsgs;
+  }
+
+  /** 获取当前原始消息（排除摘要层） */
+  getRawMessages(): Message[] {
+    return this.conversationHistory.filter(m => m.role !== 'system' || !isSummaryMessage(m));
+  }
+
+  /** 获取摘要层消息 */
+  getSummaryMessages(): Message[] {
+    return this.conversationHistory.filter(m => m.role === 'system' && isSummaryMessage(m));
+  }
+
+  /** 切换到新会话 */
+  switchSession(newSessionId: string): void {
+    // 保存当前会话状态
+    if (this.currentSessionId) {
+      addOrUpdateSession(this.currentSessionId, '切换会话', this.conversationHistory.length);
+    }
+
+    // 加载新会话状态
+    this.currentSessionId = newSessionId;
+    ensureSessionDir(newSessionId);
+
+    // 从会话目录加载历史
+    this.historyData = initHistory(newSessionId);
+
+    // 从会话目录加载对话历史
+    const checkpoint = readCheckpoint(newSessionId);
+    if (checkpoint) {
+      this.conversationHistory = [
+        { role: 'system', content: '系统提示' },
+      ];
+    } else {
+      this.conversationHistory = [];
+    }
   }
 }
 

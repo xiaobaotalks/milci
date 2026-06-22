@@ -21,10 +21,13 @@ import {
 import { ProviderRouter, type ProviderConfig } from './src/router';
 // 启动时自动加载上次激活的 Provider
 import { loadProviders } from './commands';
+import chalk from 'chalk';
 import {
   readCheckpoint,
   initHistory,
   generateSessionId,
+  readTaskCheckpoint,
+  loadSessionIndex,
 } from './memory';
 import { mcpMode } from './mcp-mode';
 import { appState } from './src/state';
@@ -51,7 +54,7 @@ let router: ProviderRouter | null = null;
 // 启动像素标识
 // 注意：CJK 字符在终端占 2 列宽，源码只算 1 字符；排版时按 CJK 字符数 -1 计算空格
 // 所有行（外框/内框/内容）终端列宽统一为 56
-const BANNER = `
+const BANNER = chalk.cyan(`
 ╔══════════════════════════════════════════════════════╗
 ║  ███╗   ███╗     ██████╗ ██████╗ ██████╗ ███████╗    ║
 ║  ████╗ ████║    ██╔════╝██╔═══██╗██╔══██╗██╔════╝    ║
@@ -65,7 +68,7 @@ const BANNER = `
 ║  ▓▒░  ┃    智能编程助手 · LLM Agent Shell    ┃  ░▒▓  ║
 ║  ▓▒░  ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯  ░▒▓  ║
 ╚══════════════════════════════════════════════════════╝
-`;
+`);
 
 // ==================== 初始化 ====================
 
@@ -110,6 +113,12 @@ async function main() {
     toolRunShell({ command: cmd, timeout }),
   );
 
+  // 加载会话索引
+  const sessionIndex = loadSessionIndex();
+  if (sessionIndex.length > 0) {
+    console.log(`[会话] 共 ${sessionIndex.length} 个历史会话`);
+  }
+
   // 启动时自动加载上次激活的 Provider（覆盖 .env 中的配置）
   try {
     const providers = loadProviders();
@@ -126,7 +135,7 @@ async function main() {
   }
 
   // 恢复或创建会话
-  const checkpoint = readCheckpoint();
+  const checkpoint = readCheckpoint(options.session);
   let currentSessionId: string;
   if (options.session) {
     currentSessionId = options.session;
@@ -139,6 +148,21 @@ async function main() {
     console.log(`[新会话] ${currentSessionId}`);
   }
 
+  // 恢复任务级 checkpoint
+  const taskCheckpoint = readTaskCheckpoint(options.session);
+  if (taskCheckpoint && taskCheckpoint.sessionId === currentSessionId) {
+    console.log(`[任务] 恢复上次任务: ${taskCheckpoint.goal}`);
+    if (taskCheckpoint.blockers.length > 0) {
+      console.log(`[任务] 阻塞问题: ${taskCheckpoint.blockers.length} 个`);
+      for (const b of taskCheckpoint.blockers) {
+        console.log(`  - Step ${b.stepId}: ${b.reason}`);
+      }
+    }
+    if (taskCheckpoint.modifiedFiles.length > 0) {
+      console.log(`[任务] 已修改文件: ${taskCheckpoint.modifiedFiles.join(', ')}`);
+    }
+  }
+
   // 初始化 appState
   appState.init({
     openai,
@@ -146,7 +170,7 @@ async function main() {
     currentSessionId,
     conversationHistory: [],
     tools,
-    historyData,
+    historyData: initHistory(currentSessionId),
   });
 
   // 构建所有 Provider 配置（主 + 备用）
@@ -175,7 +199,7 @@ async function main() {
   };
 
   // 恢复压缩摘要层
-  const compressState = loadCompressState();
+  const compressState = loadCompressState(currentSessionId);
   if (compressState.summaries.length > 0) {
     const summaryMessages: Message[] = compressState.summaries.map((s: any) => ({
       role: 'system' as const,
