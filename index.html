@@ -624,6 +624,7 @@ footer a:hover { color: var(--accent); }
     <div class="nav-links">
       <a href="#features">特性</a>
       <a href="#compare">对比</a>
+      <a href="#integrate">接入</a>
       <a href="#install">安装</a>
       <a href="#demo">演示</a>
       <a href="https://github.com/xiaobaotalks/mi-cc">GitHub →</a>
@@ -775,6 +776,137 @@ footer a:hover { color: var(--accent); }
         <div class="value-icon">⚡</div>
         <h3>多模型保障</h3>
         <p>配置多组 API Key，自动故障转移，单个模型故障不中断任务执行</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="integrate" style="background: linear-gradient(180deg, var(--bg-1), rgba(99, 102, 241, 0.03), var(--bg-0));">
+  <div class="container">
+    <h2>接入 OpenClaw / Hermes</h2>
+    <p class="section-sub">两种方式，让 AI 助手调用 mi-cc 的全部能力</p>
+
+    <div class="features" style="margin-top: 32px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));">
+      <!-- MCP Server 接入 OpenClaw -->
+      <div class="feature">
+        <div class="feature-icon">🔗</div>
+        <h3>MCP Server — 接入 OpenClaw / Cursor / Claude</h3>
+        <p>通过 <code>--mcp</code> 启动，暴露完整 Agent 能力给宿主 AI 助手，开箱即用。</p>
+
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 0.95em; color: var(--accent); margin-bottom: 8px;">为什么接入 mi-cc？</h4>
+          <div style="display: grid; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--success);">✓</span>
+              <span style="font-size: 0.88em;">多模型故障转移：401/429/5xx 自动切换，不中断任务</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--success);">✓</span>
+              <span style="font-size: 0.88em;">四层记忆持久化：宿主的对话自动写入 checkpoint/MEMORY</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--success);">✓</span>
+              <span style="font-size: 0.88em;">分层摘要压缩：超长对话自动压缩，节省 Token</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--success);">✓</span>
+              <span style="font-size: 0.88em;">完整任务执行：agent_execute 自主规划 + 多轮工具调用</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--success);">✓</span>
+              <span style="font-size: 0.88em;">项目索引问答：接入后自动建立索引，支持 /ask 语义问答</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 0.95em; color: var(--accent); margin-bottom: 8px;">OpenClaw 配置</h4>
+          <pre style="font-size: 0.82em;"><code>{
+  "mcpServers": {
+    "mi-cc": {
+      "command": "mi-cc",
+      "args": ["--mcp"],
+      "env": { "API_KEY": "your_key" }
+    }
+  }
+}</code></pre>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 0.95em; color: var(--accent); margin-bottom: 8px;">暴露的 MCP 能力</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.82em;">
+            <div><code style="color: var(--accent);">agent_execute</code></div>
+            <div style="color: var(--text-soft);">完整任务执行</div>
+            <div><code style="color: var(--accent);">readFile</code></div>
+            <div style="color: var(--text-soft);">文件读取</div>
+            <div><code style="color: var(--accent);">writeFile</code></div>
+            <div style="color: var(--text-soft);">文件写入</div>
+            <div><code style="color: var(--accent);">runShell</code></div>
+            <div style="color: var(--text-soft);">Shell（白名单）</div>
+            <div><code style="color: var(--accent);">git</code></div>
+            <div style="color: var(--text-soft);">Git 操作</div>
+            <div><code style="color: var(--accent);">skill_match</code></div>
+            <div style="color: var(--text-soft);">技能匹配</div>
+            <div><code style="color: var(--accent);">memory://*</code></div>
+            <div style="color: var(--text-soft);">项目记忆</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 16px; padding: 12px; background: var(--bg-2); border-radius: 8px; font-size: 0.85em;">
+          <strong style="color: var(--accent);">使用场景：</strong>
+          <span style="color: var(--text-soft);">Cursor/Claude Desktop 中直接提问，享有多模型切换能力</span>
+        </div>
+      </div>
+
+      <!-- Skill 模式接入 Hermes -->
+      <div class="feature">
+        <div class="feature-icon">🧩</div>
+        <h3>Skill 模式 — 接入 Hermes / Agent 框架</h3>
+        <p>mi-cc 可作为 Skill 被 Agent 框架调用，提供专业领域的编程能力。</p>
+
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 0.95em; color: var(--accent); margin-bottom: 8px;">Skill 的核心价值</h4>
+          <div style="display: grid; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--success);">✓</span>
+              <span style="font-size: 0.88em;">技能蒸馏：<code>/distill</code> 从历史对话自动挖掘工作流</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--success);">✓</span>
+              <span style="font-size: 0.88em;">智能匹配：输入时 top-2 相关技能自动注入 System Prompt</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--success);">✓</span>
+              <span style="font-size: 0.88em;">可扩展：<code>skill-lib.md</code> 声明式添加新技能</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--success);">✓</span>
+              <span style="font-size: 0.88em;">跨会话：技能库跨会话共享，持续积累</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 0.95em; color: var(--accent); margin-bottom: 8px;">Skill 匹配模式</h4>
+          <pre style="font-size: 0.82em;"><code># 启动 Skill 匹配模式
+mi-cc --skill "重构 TypeScript 项目"
+
+# Agent 调用示例
+@mi-cc 重构这个项目的错误处理逻辑</code></pre>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 0.95em; color: var(--accent); margin-bottom: 8px;">技能库示例（skill-lib.md）</h4>
+          <pre style="font-size: 0.78em;"><code>## 重构 TypeScript
+当用户说"重构"、"优化代码"时触发
+- 步骤：分析依赖 → 提取类型 → 移除冗余 → 添加泛型
+- 工具：readFile, writeFile, runShell(npx tsc)</code></pre>
+        </div>
+
+        <div style="margin-top: 16px; padding: 12px; background: var(--bg-2); border-radius: 8px; font-size: 0.85em;">
+          <strong style="color: var(--accent);">使用场景：</strong>
+          <span style="color: var(--text-soft);">Hermes 中作为编程专家，处理复杂重构任务</span>
+        </div>
       </div>
     </div>
   </div>
