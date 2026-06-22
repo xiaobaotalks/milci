@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>mi-cc · 终端智能编程助手 v2.0</title>
-<meta name="description" content="mi-cc - 终端对话 · 工具调用 · 四层记忆 · 分层摘要压缩 · 经验蒸馏 · 多会话 · 多 Provider · MCP Server · 项目索引问答的开源 AI 编程助手。" />
-<meta name="keywords" content="mi-cc, AI CLI, 智能编程, 终端, LLM Agent, MCP, OpenAI, MiMo, 小米" />
+<title>mi-cc · AI 编程助手</title>
+<meta name="description" content="mi-cc - 自带四层记忆、多模型故障转移、自动压缩的 AI 编程助手。本地终端体验 + MCP Server 模式，让 OpenClaw/Cursor/Claude 获得专属编程能力。" />
+<meta name="keywords" content="mi-cc, AI CLI, 智能编程, 终端, LLM Agent, MCP, OpenClaw, Hermes, OpenAI, MiMo, 小米" />
 <meta name="author" content="xiaobaotalks" />
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%BB%3C/text%3E%3C/svg%3E" />
 
@@ -42,7 +42,6 @@
     min-height: 100vh;
   }
 
-  /* ===== 背景装饰 ===== */
   body::before {
     content: "";
     position: fixed;
@@ -118,10 +117,8 @@
   .copy-btn:hover { color: var(--text); border-color: var(--accent); background: var(--bg-2); }
   .copy-btn.copied { color: var(--success); border-color: var(--success); background: rgba(63, 185, 80, 0.1); }
 
-  /* ===== 布局 ===== */
   .container { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
 
-  /* ===== 导航 ===== */
   nav {
     position: sticky; top: 0; z-index: 100;
     background: rgba(10, 13, 20, 0.75);
@@ -159,7 +156,6 @@
   }
   .nav-links a:hover::after { width: 100%; }
 
-  /* ===== Hero ===== */
   .hero {
     text-align: center;
     padding: 100px 0 80px;
@@ -283,7 +279,6 @@
     transform: translateY(-2px);
   }
 
-  /* ===== Section ===== */
   section { padding: 80px 0; position: relative; }
   section:nth-child(even) { background: linear-gradient(180deg, transparent, rgba(255,107,0,0.02), transparent); }
   h2 {
@@ -295,7 +290,6 @@
   }
   .section-sub { text-align: center; color: var(--text-soft); margin-bottom: 48px; font-size: 1.05em; }
 
-  /* ===== 特性卡片 ===== */
   .features {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
@@ -335,7 +329,6 @@
   .feature h3 { font-size: 1.15em; margin-bottom: 10px; color: var(--text); font-weight: 600; }
   .feature p { color: var(--text-soft); font-size: 0.92em; line-height: 1.7; }
 
-  /* ===== 安装步骤 ===== */
   .install-steps { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
   .step {
     background: var(--card);
@@ -360,7 +353,6 @@
   }
   .step h3 { display: inline-block; font-size: 1.1em; vertical-align: middle; color: var(--text); font-weight: 600; }
 
-  /* ===== 命令表格 ===== */
   .cmd-table {
     width: 100%;
     max-width: 880px;
@@ -388,7 +380,6 @@
   }
   .cmd-table tr:hover { background: rgba(255, 107, 0, 0.03); }
 
-  /* ===== 终端演示 ===== */
   .terminal-demo {
     background: linear-gradient(135deg, #0a0d14 0%, #141a28 100%);
     border: 1px solid var(--border);
@@ -436,7 +427,77 @@
   .terminal-warning { color: #ffbd2e; }
   .terminal-border-top { border-top: 1px dashed var(--border-soft); margin-top: 12px; padding-top: 12px; }
 
-  /* ===== Footer ===== */
+  .compare-table {
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--card);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+  }
+  .compare-table th, .compare-table td {
+    padding: 16px 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-soft);
+    border-right: 1px solid var(--border-soft);
+  }
+  .compare-table th:last-child, .compare-table td:last-child { border-right: none; }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table th {
+    background: rgba(255, 107, 0, 0.06);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.92em;
+  }
+  .compare-table td:first-child { text-align: left; font-weight: 500; color: var(--text); }
+  .compare-table .yes { color: var(--success); font-weight: 600; }
+  .compare-table .no { color: var(--text-soft); opacity: 0.6; }
+  .compare-table .highlight { background: rgba(255, 107, 0, 0.05); }
+
+  .value-prop {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-width: 980px;
+    margin: 0 auto;
+  }
+  .value-item {
+    background: var(--card);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    padding: 28px;
+    width: 300px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s;
+  }
+  .value-item:hover {
+    border-color: var(--accent);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(255, 107, 0, 0.12);
+  }
+  .value-icon {
+    font-size: 2.5em;
+    margin-bottom: 16px;
+    display: inline-block;
+  }
+  .value-item h3 {
+    font-size: 1.15em;
+    margin-bottom: 8px;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .value-item p {
+    color: var(--text-soft);
+    font-size: 0.9em;
+    line-height: 1.6;
+  }
+
   footer {
     border-top: 1px solid var(--border-soft);
     padding: 50px 0 40px;
@@ -458,7 +519,6 @@
     margin-bottom: 8px;
   }
 
-  /* ===== 响应式 ===== */
   @media (max-width: 780px) {
     h1 { font-size: 3em; }
     .tagline { font-size: 1.05em; }
@@ -469,6 +529,8 @@
     .feature { padding: 22px; }
     .cmd-table th, .cmd-table td { padding: 12px 16px; font-size: 0.85em; }
     .terminal-body { font-size: 0.78em; padding: 18px; }
+    .compare-table th, .compare-table td { padding: 12px 8px; font-size: 0.85em; }
+    .value-item { width: 100%; }
   }
 </style>
 </head>
@@ -482,8 +544,8 @@
     </div>
     <div class="nav-links">
       <a href="#features">特性</a>
+      <a href="#compare">对比</a>
       <a href="#install">安装</a>
-      <a href="#commands">命令</a>
       <a href="#demo">演示</a>
       <a href="https://github.com/xiaobaotalks/mi-cc">GitHub →</a>
     </div>
@@ -494,19 +556,15 @@
   <div class="container">
     <div class="badge"><span class="dot"></span>v2.0.0 · MIT License · 国产模型优先</div>
     <h1>mi-cc</h1>
-    <p class="tagline">在终端里运行的智能编程助手 · 工具调用 · 四层记忆 · 分层摘要 · 多会话 · MCP Server · 项目索引问答</p>
+    <p class="tagline">自带四层记忆、多模型故障转移、自动压缩的 AI 编程助手。<br />本地终端体验 + MCP Server 模式，让 OpenClaw/Cursor/Claude 获得专属编程能力。</p>
 
     <div class="features-inline">
-      <span class="feature-pill">终端对话</span>
-      <span class="feature-pill">工具调用</span>
-      <span class="feature-pill">四层记忆</span>
-      <span class="feature-pill">分层摘要</span>
-      <span class="feature-pill">经验蒸馏</span>
-      <span class="feature-pill">多会话</span>
-      <span class="feature-pill">多 Provider</span>
-      <span class="feature-pill">MCP Server</span>
-      <span class="feature-pill">项目索引</span>
-      <span class="feature-pill">代码问答</span>
+      <span class="feature-pill">🧠 四层记忆</span>
+      <span class="feature-pill">🔄 多模型切换</span>
+      <span class="feature-pill">📦 自动压缩</span>
+      <span class="feature-pill">🎯 自主规划</span>
+      <span class="feature-pill">📚 技能蒸馏</span>
+      <span class="feature-pill">🌐 MCP Server</span>
     </div>
 
     <div class="cta">
@@ -520,7 +578,7 @@
 <section id="features">
   <div class="container">
     <h2>核心特性</h2>
-    <p class="section-sub">11 大功能模块，为开发者量身打造</p>
+    <p class="section-sub">8 大核心能力，为开发者量身打造</p>
     <div class="features">
       <div class="feature">
         <div class="feature-icon">🧠</div>
@@ -528,14 +586,9 @@
         <p>checkpoint（会话）/ MEMORY（项目）/ notes（草稿）/ history（日志），启动自动恢复，跨会话持久化。</p>
       </div>
       <div class="feature">
-        <div class="feature-icon">📝</div>
+        <div class="feature-icon">💾</div>
         <h3>任务级 Checkpoint</h3>
         <p>每次工具调用自动写入任务 checkpoint，记录目标 / 步骤 / 已修改文件 / 阻塞问题，崩溃可续。</p>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🔀</div>
-        <h3>多会话管理</h3>
-        <p>每个会话独立的 history / checkpoint / 压缩状态，通过 /session 命令切换，隔离不同项目的上下文。</p>
       </div>
       <div class="feature">
         <div class="feature-icon">🔄</div>
@@ -548,14 +601,9 @@
         <p>三档触发（60% / 80% / 95%），滚动窗口自动维护最近 N 轮，摘要层持久化，重启不丢。</p>
       </div>
       <div class="feature">
-        <div class="feature-icon">🤖</div>
-        <h3>13 个模型自动识别</h3>
-        <p>内置 MiMo 1M / GPT-4o / Claude / DeepSeek / GLM-4 / Moonshot 等上下文窗口映射，启动自动设置。</p>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🛠️</div>
-        <h3>工具调用 + MCP</h3>
-        <p>内置 readFile / writeFile / runShell / git，支持 MCP 风格外部工具声明，管道安全拦截。</p>
+        <div class="feature-icon">🎯</div>
+        <h3>完整任务执行</h3>
+        <p>agent_execute 自主规划 + 多轮工具调用完成完整编程任务，而非仅支持原子操作。</p>
       </div>
       <div class="feature">
         <div class="feature-icon">📚</div>
@@ -565,22 +613,84 @@
       <div class="feature">
         <div class="feature-icon">🔍</div>
         <h3>项目索引与问答</h3>
-        <p>/index 扫描 ts/js/json/md 提取函数/导入/导出；/ask 基于索引进行代码问答，支持 TF-IDF 检索。</p>
+        <p>/index 扫描代码提取函数/导入/导出；/ask 基于索引进行代码问答，支持 TF-IDF 检索。</p>
       </div>
       <div class="feature">
         <div class="feature-icon">🌐</div>
         <h3>MCP Server 模式</h3>
-        <p>通过 --mcp 参数启动为 MCP Server，可被 OpenClaw、Cursor、Claude 等宿主调用，暴露完整 Agent 能力。</p>
+        <p>通过 --mcp 参数启动，暴露完整 Agent 能力给 OpenClaw、Cursor、Claude，开箱即用。</p>
       </div>
-      <div class="feature">
-        <div class="feature-icon">🎨</div>
-        <h3>彩色终端 UI</h3>
-        <p>chalk 驱动的彩色渲染，工具调用结果带边框和状态图标，助手回复带标题，一眼识别信息类型。</p>
+    </div>
+  </div>
+</section>
+
+<section id="compare" style="background: linear-gradient(180deg, transparent, rgba(107, 163, 255, 0.03), transparent);">
+  <div class="container">
+    <h2>为什么选择 mi-cc？</h2>
+    <p class="section-sub">与普通 MCP 工具的核心差异</p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>对比维度</th>
+          <th>mi-cc</th>
+          <th>普通 MCP 工具</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>🧠 记忆系统</td>
+          <td class="yes highlight">四层记忆（checkpoint/MEMORY/notes/history）</td>
+          <td class="no">无</td>
+        </tr>
+        <tr>
+          <td>🔄 模型切换</td>
+          <td class="yes highlight">多 Provider 故障转移，401/429/5xx 自动切换</td>
+          <td class="no">依赖宿主模型，无切换能力</td>
+        </tr>
+        <tr>
+          <td>📦 上下文压缩</td>
+          <td class="yes highlight">分层摘要 + 滚动窗口，超长对话自动压缩</td>
+          <td class="no">依赖宿主处理</td>
+        </tr>
+        <tr>
+          <td>🎯 任务执行</td>
+          <td class="yes highlight">agent_execute 自主规划 + 多轮工具调用</td>
+          <td class="no">仅支持原子操作（读/写/执行）</td>
+        </tr>
+        <tr>
+          <td>📚 技能库</td>
+          <td class="yes highlight">/distill 经验蒸馏，自动挖掘工作流</td>
+          <td class="no">无</td>
+        </tr>
+        <tr>
+          <td>🔍 项目索引</td>
+          <td class="yes highlight">/index 扫描代码，/ask 语义问答</td>
+          <td class="no">无</td>
+        </tr>
+        <tr>
+          <td>💾 状态持久化</td>
+          <td class="yes highlight">任务级 checkpoint，崩溃可续</td>
+          <td class="no">无</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="value-prop" style="margin-top: 48px;">
+      <div class="value-item">
+        <div class="value-icon">🚀</div>
+        <h3>本地编程助手</h3>
+        <p>无缝终端体验，超长对话自动压缩，任务断点续跑，不依赖任何宿主</p>
       </div>
-      <div class="feature">
-        <div class="feature-icon">🔒</div>
-        <h3>安全加固</h3>
-        <p>白名单命令拦截，路径安全校验，操作审计日志，API Key 可加密存储（keytar），保障敏感操作。</p>
+      <div class="value-item">
+        <div class="value-icon">🔗</div>
+        <h3>MCP 服务端</h3>
+        <p>让 OpenClaw/Cursor/Claude 获得专属编程能力，自主规划完成完整任务</p>
+      </div>
+      <div class="value-item">
+        <div class="value-icon">⚡</div>
+        <h3>多模型保障</h3>
+        <p>配置多组 API Key，自动故障转移，单个模型故障不中断任务执行</p>
       </div>
     </div>
   </div>
@@ -616,35 +726,6 @@ mi-cc --mcp            # 以 MCP Server 模式运行</code><button class="copy-b
   </div>
 </section>
 
-<section id="commands">
-  <div class="container">
-    <h2>斜杠命令</h2>
-    <p class="section-sub">输入 <code>/</code> 然后按 Tab 即可补全 · 共 14+ 个命令</p>
-
-    <table class="cmd-table">
-      <thead>
-        <tr><th>命令</th><th>说明</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>/connect</td><td>交互式配置向导（8 家供应商选择 + 连接测试）</td></tr>
-        <tr><td>/provider</td><td>多 Provider 管理（list / save / switch / remove）</td></tr>
-        <tr><td>/session</td><td>多会话管理（list / switch / new / rename / remove）</td></tr>
-        <tr><td>/task</td><td>任务级 checkpoint 查看与管理</td></tr>
-        <tr><td>/window</td><td>滚动窗口设置（status / set）</td></tr>
-        <tr><td>/index</td><td>扫描项目生成文件 / 函数 / 导入 / 导出索引</td></tr>
-        <tr><td>/ask &lt;问题&gt;</td><td>基于项目索引的 LLM 代码问答</td></tr>
-        <tr><td>/compact</td><td>手动压缩上下文</td></tr>
-        <tr><td>/distill</td><td>经验蒸馏，从历史生成技能库</td></tr>
-        <tr><td>/dream</td><td>记忆整理 + 清理过期日志</td></tr>
-        <tr><td>/skill</td><td>查看 / 刷新技能库（list / name / reload）</td></tr>
-        <tr><td>/tools</td><td>查看所有可用工具</td></tr>
-        <tr><td>/help</td><td>显示帮助</td></tr>
-        <tr><td>/exit · /quit</td><td>退出程序</td></tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
 <section id="demo">
   <div class="container">
     <h2>运行演示</h2>
@@ -665,37 +746,25 @@ mi-cc --mcp            # 以 MCP Server 模式运行</code><button class="copy-b
           <span class="terminal-info">[会话]</span> 新会话 session-20260622 · 启动
         </div>
         <div class="terminal-line terminal-border-top">
-          <span class="terminal-prompt">&gt;</span> <span class="terminal-input">帮我创建一个 hello.txt，内容是 "Hello MiMo v2.0!"</span>
+          <span class="terminal-prompt">&gt;</span> <span class="terminal-input">帮我创建一个 Todo 应用的项目结构</span>
         </div>
         <div class="terminal-line">
-          <span class="terminal-info">[助手]</span> 好的，我来调用 writeFile 工具完成这个任务。
+          <span class="terminal-info">[助手]</span> 好的，我来规划并执行这个任务。
         </div>
         <div class="terminal-line">
-          <span class="terminal-success">✓</span> writeFile({ "path": "hello.txt", "content": "Hello MiMo v2.0!" }) · 耗时 42ms
+          <span class="terminal-success">✓</span> writeFile({ "path": "package.json", ... }) · 耗时 38ms
+        </div>
+        <div class="terminal-line">
+          <span class="terminal-success">✓</span> writeFile({ "path": "src/App.tsx", ... }) · 耗时 24ms
+        </div>
+        <div class="terminal-line">
+          <span class="terminal-success">✓</span> runShell("npm install") · 耗时 12450ms
+        </div>
+        <div class="terminal-line">
+          <span class="terminal-success">✓</span> runShell("npm run build") · 耗时 3820ms
         </div>
         <div class="terminal-line terminal-border-top">
-          <span class="terminal-prompt">&gt;</span> <span class="terminal-input">/session list</span>
-        </div>
-        <div class="terminal-line">
-          <span class="terminal-info">[会话]</span> 共 3 个：
-        </div>
-        <div class="terminal-line">
-          &nbsp;&nbsp;· s_projA · 项目重构 · 128 条 · 2h 前 · <span class="terminal-success">当前</span>
-        </div>
-        <div class="terminal-line">
-          &nbsp;&nbsp;· s_projB · Bug 排查 · 54 条 · 昨天
-        </div>
-        <div class="terminal-line">
-          &nbsp;&nbsp;· s_mimo_dev · MiMo 开发 · 312 条 · 3 天前
-        </div>
-        <div class="terminal-line terminal-border-top">
-          <span class="terminal-prompt">&gt;</span> <span class="terminal-input">/ask 这个项目中的 handleToolCalls 函数是做什么的？</span>
-        </div>
-        <div class="terminal-line">
-          <span class="terminal-info">[索引]</span> 命中 3 个相关文件（agent.ts · mi-cc.ts · commands.ts）
-        </div>
-        <div class="terminal-line terminal-border-top">
-          <span class="terminal-warning">⚠</span> <span class="terminal-output">[LLM] 上下文 72% · 状态良好</span>
+          <span class="terminal-info">[任务]</span> ✅ Todo 应用创建完成！
         </div>
       </div>
     </div>
@@ -705,7 +774,7 @@ mi-cc --mcp            # 以 MCP Server 模式运行</code><button class="copy-b
 <footer>
   <div class="container">
     <div class="footer-logo">mi-cc</div>
-    <p>终端里的智能编程助手</p>
+    <p>自带四层记忆、多模型故障转移、自动压缩的 AI 编程助手</p>
     <div class="social">
       <a href="https://github.com/xiaobaotalks/mi-cc">GitHub 仓库</a>
       <a href="https://github.com/xiaobaotalks/mi-cc/issues">问题反馈</a>
@@ -750,7 +819,7 @@ mi-cc --mcp            # 以 MCP Server 模式运行</code><button class="copy-b
     });
   }, { threshold: 0.1 });
 
-  document.querySelectorAll('.feature, .step').forEach((el, i) => {
+  document.querySelectorAll('.feature, .step, .value-item').forEach((el, i) => {
     el.style.opacity = '0';
     el.style.transform = 'translateY(20px)';
     el.style.transition = `opacity 0.5s ease ${i * 0.05}s, transform 0.5s ease ${i * 0.05}s`;

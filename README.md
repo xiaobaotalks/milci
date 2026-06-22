@@ -1,8 +1,28 @@
 # mi-cc
 
-最简化版智能编程助手，终端对话 + 工具调用 + 四层记忆 + 分层摘要压缩 + 经验蒸馏 + 技能库 + MCP Server 模式 + 多会话 + 多 Provider 故障转移 + 项目索引与问答。
+**AI 编程助手 · 终端对话 + 工具调用 + 四层记忆 + 多模型故障转移 + MCP Server**
 
-> 默认对接国产大模型（小米 MiMo），兼容任意 OpenAI Chat Completions 协议通道（OpenAI / Claude / GLM / Moonshot / DeepSeek / 硅基流动等）。
+> 默认对接国产大模型（小米 MiMo），兼容任意 OpenAI Chat Completions 协议通道。
+>
+> **两大核心价值**：
+> - 🧠 **本地编程助手**：无缝终端体验，超长对话自动压缩，任务断点续跑
+> - 🌐 **MCP 服务端**：让 OpenClaw/Cursor/Claude 获得专属编程能力，自主规划完成完整任务
+
+---
+
+## 为什么选择 mi-cc？
+
+| 对比维度 | mi-cc | 普通 MCP 工具 |
+|----------|-------|---------------|
+| 🧠 记忆系统 | 四层记忆（checkpoint/MEMORY/notes/history），启动自动恢复 | 无 |
+| 🔄 模型切换 | 多 Provider 故障转移，401/429/5xx 自动切换 | 依赖宿主模型，无切换能力 |
+| 📦 上下文压缩 | 分层摘要 + 滚动窗口，超长对话自动压缩 | 依赖宿主处理 |
+| 🎯 任务执行 | `agent_execute` 自主规划 + 多轮工具调用完成完整任务 | 仅支持原子操作（读/写/执行） |
+| 📚 技能库 | `/distill` 经验蒸馏，自动挖掘工作流为技能 | 无 |
+| 🔍 项目索引 | `/index` 扫描代码，`/ask` 语义问答 | 无 |
+| 💾 状态持久化 | 任务级 checkpoint，崩溃可续 | 无 |
+
+---
 
 ## 安装
 
@@ -24,9 +44,6 @@ cp .env.example .env
 API_KEY=your_api_key_here
 BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
 MODEL=mimo-v2.5-pro
-# MAX_TOKEN 可选；不填则按模型自动推断
-#   - MiMo / GPT-4o / Claude / GLM-4 / Moonshot-128k / DeepSeek 全部自动识别
-#   - 未知模型默认 8000
 
 # 可选：多 Provider 故障转移（主 Provider 失败时自动切换）
 # API_KEY_1=sk-openai-xxxx
@@ -51,6 +68,30 @@ mi-cc -s my-session-id
 mi-cc --mcp
 ```
 
+---
+
+## 快速体验：完整编程任务
+
+```bash
+# 启动 mi-cc
+mi-cc
+
+# 输入
+帮我创建一个 Todo 应用的项目结构
+
+# mi-cc 会自动：
+# 1. 规划任务步骤
+# 2. 创建目录结构
+# 3. 生成 package.json
+# 4. 创建核心源码文件
+# 5. 运行 npm install
+# 6. 验证构建
+
+# 中途中断后再次启动，自动恢复进度
+```
+
+---
+
 ## 斜杠命令
 
 输入 `/` 然后按 **Tab** 可补全命令；只输入 `/` 回车会列出全部命令。
@@ -72,6 +113,8 @@ mi-cc --mcp
 | `/help` | 显示帮助 |
 | `/exit` / `/quit` | 退出 |
 
+---
+
 ## 功能特性
 
 ### 1. 四层记忆系统
@@ -83,28 +126,18 @@ mi-cc --mcp
 | L3 | `notes.md` | 临时笔记 / 待办 / 调试记录 |
 | L4 | `history.json` | 完整对话历史（可检索） |
 
-### 2. 任务级 Checkpoint（v2.0 新增）
+### 2. 任务级 Checkpoint
 
 - 每次工具调用自动写入 `task-checkpoint.json`
 - 包含：目标 / 当前步骤 / 已修改文件 / 阻塞问题 / 时间戳
 - `/task status` 查看当前进度，`/task steps` 查看每步详情
 - 启动自动恢复，崩溃可续
 
-### 3. 多会话管理（v2.0 新增）
-
-```bash
-/session list            # 查看所有会话
-/session switch <id>     # 切换会话
-/session new <名称>      # 创建新会话
-/session rename <id> <新名称>
-/session remove <id>
-```
+### 3. 多会话管理
 
 每个会话独立的 `history.json`、`checkpoint.md`、`task-checkpoint.json`、`compress-state.json`，储存在 `sessions/<id>/` 下。
 
-### 4. 多 Provider 故障转移（v1.2 新增）
-
-支持配置多组 API Key，主 Provider 失败时自动切换：
+### 4. 多 Provider 故障转移
 
 | 错误类型 | 策略 |
 |----------|------|
@@ -112,63 +145,45 @@ mi-cc --mcp
 | 429 / 速率限制 | 冷却 30s 后切换 |
 | 5xx / 超时 | 指数退避重试 3 次后切换 |
 
-```bash
-# 配置多个 Provider（在 .env 中）
-API_KEY=sk-mimo-xxx
-API_KEY_1=sk-openai-xxx
-API_KEY_2=sk-anthropic-xxx
-```
-
 ### 5. 分层摘要压缩（三档触发）
 
 - **软阈值 60%** — 仅日志告警
 - **标准阈值 80%** — 早期原文压缩为 L0 摘要，保留最近 5 轮
 - **紧急阈值 95%** — 旧摘要与更早原文合并升层，保留最近 3 轮
-- 压缩状态持久化到 `compress-state.json`，重启不丢
-- **滚动窗口（v2.0 新增）**：超过 `maxRawTurns`（默认 20 轮）自动压缩，保持对话新鲜度
+- **滚动窗口**：超过 `maxRawTurns`（默认 20 轮）自动压缩
 
-### 6. 按模型自动识别上下文窗口
-
-内置 13 个主流模型映射（MiMo 1M / GLM-4 128K / Moonshot 128K / DeepSeek 64K / GPT-4o 128K / Claude 200K / 硅基流动等）。启动时若未设置 `MAX_TOKEN` 会自动按模型设置。
-
-> LLM 报错 `context_length_exceeded` / `prompt too long` 时，CLI 会自动降级 `maxTokens`（×0.9）并强制压缩后重试一次。
-
-### 7. 工具调用系统
+### 6. 工具调用系统
 
 - **内置工具**：`readFile` / `writeFile` / `runShell` / `git`
-- **MCP 风格外部工具**：把 `mcp-tools.json` 或 `mcp-tools/*.json` 放进项目根目录即可自动加载
 - **危险命令拦截**：白名单模式，仅允许常见开发命令
 - **操作审计**：所有工具调用记录到 `audit.log`
-- **路径安全**：禁止 `../` 路径逃逸，写文件自动 `mkdir -p`
+- **路径安全**：禁止 `../` 路径逃逸
 
-### 8. 技能库系统
+### 7. 技能库系统
 
 - `skill-lib.md` 用 Markdown 声明技能
 - 输入匹配：CJK 单字 + ASCII 词 + 停用词过滤
 - 每次对话 top-2 命中技能自动注入 System Prompt
 - `/distill` 自动从历史对话挖掘新技能
 
-### 9. 项目索引与问答（v2.0 新增）
+### 8. 项目索引与问答
 
 ```bash
 /index          # 扫描 ts/js/json/md 文件，提取函数/导入/导出
 /ask <问题>     # 基于索引结果，调用 LLM 回答代码相关问题
 ```
 
-- 索引文件：`.mi-cc-index.json`
-- 支持基于关键词的代码检索（TF-IDF 打分）
-- 索引命中后注入 System Prompt，提升代码问答准确性
+---
 
-### 10. MCP Server 模式
+## MCP Server 模式
 
-mi-cc 可作为 MCP Server 被任意支持 MCP 协议的客户端调用：
+mi-cc 作为 MCP Server 接入后，宿主 AI 助手获得以下专属能力：
 
 ```bash
-# 启动 MCP Server（stdio 模式）
 mi-cc --mcp
 ```
 
-**OpenClaw 配置示例**：
+### OpenClaw 配置
 
 ```json
 {
@@ -182,23 +197,33 @@ mi-cc --mcp
 }
 ```
 
-**暴露的能力**：
+### 暴露的能力
 
 | 类型 | 名称 | 描述 |
 |------|------|------|
-| tool | `agent_execute` | 执行完整编程任务（内部自主规划、工具调用、压缩） |
-| tool | `readFile` / `writeFile` / `runShell` / `git` | 原子工具调用 |
-| tool | `skill_match` | 根据输入匹配相关技能 |
-| resource | `memory://project` | 项目记忆 |
-| resource | `memory://notes` | 临时笔记 |
+| tool | `agent_execute` | 执行完整编程任务（自主规划 + 多轮工具调用 + 压缩） |
+| tool | `readFile` / `writeFile` | 文件读写 |
+| tool | `runShell` | Shell 命令（超时 + 白名单拦截） |
+| tool | `git` | Git 操作 |
+| tool | `skill_match` | 技能匹配 |
+| resource | `memory://project` | 项目记忆（MEMORY.md） |
+| resource | `memory://notes` | 临时笔记（notes.md） |
 | resource | `memory://checkpoint` | 会话检查点 |
 
-### 11. 彩色终端 UI（v2.0 新增）
+### 使用场景
 
-- 工具调用结果：彩色边框 + 状态图标（✓ / ✗）
-- 助手回复：蓝色标题 + 分隔线
-- 警告 / 成功 / 错误：黄色 / 绿色 / 红色
-- 进度条：20 格进度显示
+```
+用户: @mi-cc 帮我修复 src/utils.ts 中的类型错误
+
+→ mi-cc 内部执行：
+  1. readFile("src/utils.ts")     # 读取文件
+  2. 分析错误                      # LLM 规划
+  3. writeFile("src/utils.ts", ...) # 修复代码
+  4. runShell("npx tsc --noEmit") # 验证
+→ 返回执行结果摘要
+```
+
+---
 
 ## 项目结构
 
@@ -232,15 +257,15 @@ mi-cc --mcp
 │   ├── plan.md            # 优化升级计划
 │   ├── features.md        # 功能改进详细设计
 │   └── mcp-guide.md       # MCP Server 接入指南
-├── sessions/              # 多会话存储（每个子目录是一个会话）
+├── sessions/              # 多会话存储
 ├── skill-lib.md           # 技能库
 ├── mcp-tools.example.json # MCP 外部工具示例
 ├── .env.example           # 环境变量示例
 ├── tsconfig.json          # strict TypeScript 配置
-├── package.json           # v2.0.0
-├── index.html             # 项目官网
-└── README.md
+└── package.json           # v2.0.0
 ```
+
+---
 
 ## 安全说明
 
@@ -253,17 +278,10 @@ mi-cc --mcp
 ## 开发
 
 ```bash
-# 类型检查（strict 模式）
-npx tsc --noEmit
-
-# 启动开发模式（tsx 自动重载）
-npm run dev
-
-# 运行测试
-npm test
-
-# 构建
-npm run build
+npx tsc --noEmit    # 类型检查
+npm run dev         # 开发模式
+npm test            # 运行测试
+npm run build       # 构建
 ```
 
 ## License
