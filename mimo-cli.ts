@@ -15,7 +15,6 @@ import {
   estimateTotalTokens,
   saveStateFromMessages,
   resolveContextWindow,
-  isContextLengthError,
 } from './compress';
 import { matchSkill, formatSkillForPrompt } from './skills';
 import type { Message, Tool, HistoryRecord, Config, Checkpoint } from './types';
@@ -43,11 +42,17 @@ import {
   generateSessionId,
   SKILL_LIB_FILE,
 } from './memory';
+import { mcpMode } from './mcp-mode';
 
 // ==================== 常量 ====================
 
 /** Agent 循环最大工具调用轮数，防止无限循环 */
 const MAX_TOOL_ITERATIONS = 20;
+
+/** LLM 调用超时时间（毫秒） */
+const LLM_TIMEOUT_MS = 30_000;
+/** LLM 调用最大重试次数（仅对 server/unknown 错误） */
+const LLM_MAX_RETRIES = 3;
 
 // ==================== 全局变量 ====================
 
@@ -72,7 +77,7 @@ const BANNER = `
 ║  ╚═╝     ╚═╝     ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝    ║
 ╠══════════════════════════════════════════════════════╣
 ║  ▓▒░  ╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮  ░▒▓  ║
-║  ▓▒░  ┃ ✦  【 为 发 烧 而 生 】  ✦  MiMo CLI ┃  ░▒▓  ║
+║  ▓▒░  ┃ ✦  【 为 发 烧 而 生 】  ✦  mi-cc  ┃  ░▒▓  ║
 ║  ▓▒░  ┃    智能编程助手 · LLM Agent Shell    ┃  ░▒▓  ║
 ║  ▓▒░  ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯  ░▒▓  ║
 ╚══════════════════════════════════════════════════════╝
@@ -159,7 +164,7 @@ function buildSystemPrompt(currentUserInput?: string): string {
   const checkpoint = readCheckpoint();
   const skillLib = fs.existsSync(SKILL_LIB_FILE) ? fs.readFileSync(SKILL_LIB_FILE, 'utf-8') : '';
 
-  let systemPrompt = `你是一个智能编程助手 MiMo Code CLI。
+  let systemPrompt = `你是一个智能编程助手 mi-cc。
 
 ## 当前会话
 - Session ID: ${currentSessionId}
@@ -206,7 +211,21 @@ ${tools.map(t => `- ${t.name}: ${t.description}${t.source === 'mcp' ? ' (MCP)' :
 
 // ==================== LLM 调用 ====================
 
-async function callLLM(messages: Message[]): Promise<Message> {
+/** 分类 LLM 错误类型 */
+function classifyLLMError(error: unknown): 'auth' | 'rate_limit' | 'server' | 'context_length' | 'unknown' {
+  const msg = (error as Error).message || String(error);
+  if (/invalid.*api.*key|authentication|unauthorized|401/i.test(msg)) return 'auth';
+  if (/rate.?limit|429|too.?many.?requests/i.test(msg)) return 'rate_limit';
+  if (/context.?length|maximum.?context|too.?many.?tokens|prompt.*too.*long/i.test(msg)) return 'context_length';
+  if (/500|502|503|504|econnrefused|econnreset|timeout|ETIMEDOUT/i.test(msg)) return 'server';
+  return 'unknown';
+}
+
+/** 带超时的 LLM 调用 */
+async function callLLMWithTimeout(messages: Message[]): Promise<Message> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+
   try {
     const response = await openai.chat.completions.create({
       model: config.model,
@@ -214,17 +233,33 @@ async function callLLM(messages: Message[]): Promise<Message> {
       tools: toolsToOpenAIFormat(tools),
       tool_choice: 'auto',
       max_tokens: config.maxTokens,
-    });
+    }, { signal: controller.signal as any });
+    return response.choices[0].message as unknown as Message;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
-    const choice = response.choices[0];
-    // OpenAI SDK 返回的 message 已含 role/content/tool_calls，直接使用
-    // Message.tool_calls 与 ChatCompletionMessage.tool_calls 类型兼容
-    return choice.message as unknown as Message;
+async function callLLM(messages: Message[]): Promise<Message> {
+  // --- 首次尝试 ---
+  try {
+    return await callLLMWithTimeout(messages);
   } catch (error) {
-    // 上下文超限时：自动压缩并降级 maxTokens 后重试一次
-    if (isContextLengthError(error)) {
+    const category = classifyLLMError(error);
+
+    // 认证错误：不重试，直接抛出
+    if (category === 'auth') {
+      throw new Error(`[LLM] 认证失败，请检查 API Key 是否正确。原始错误: ${error}`);
+    }
+
+    // 限速错误：不重试，提示用户
+    if (category === 'rate_limit') {
+      throw new Error(`[LLM] 请求频率超限（429），请稍后再试。原始错误: ${error}`);
+    }
+
+    // 上下文超限：保持现有压缩+降级逻辑
+    if (category === 'context_length') {
       console.log(`[LLM] 触发上下文超限，自动压缩并降级重试...`);
-      // 用更激进的 maxTokens（当前 90%）重试
       const reducedMax = Math.floor(config.maxTokens * 0.9);
       config.maxTokens = reducedMax;
       appendNote(`[LLM] 上下文超限，已将 maxTokens 降至 ${reducedMax}`);
@@ -245,17 +280,55 @@ async function callLLM(messages: Message[]): Promise<Message> {
         { role: 'system', content: buildSystemPrompt() },
         ...conversationHistory,
       ];
-      const retry = await openai.chat.completions.create({
-        model: config.model,
-        messages: retryMessages as unknown as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-        tools: toolsToOpenAIFormat(tools),
-        tool_choice: 'auto',
-        max_tokens: reducedMax,
-      });
-      return retry.choices[0].message as unknown as Message;
+      return await callLLMWithTimeout(retryMessages);
     }
-    throw new Error(`LLM 调用失败: ${error}`);
+
+    // server / unknown 错误：指数退避重试
+    for (let attempt = 0; attempt < LLM_MAX_RETRIES; attempt++) {
+      const delay = 500 * Math.pow(2, attempt);
+      console.log(`[LLM] ${category === 'server' ? '服务端' : '未知'}错误，第 ${attempt + 1}/${LLM_MAX_RETRIES} 次重试，等待 ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      try {
+        return await callLLMWithTimeout(messages);
+      } catch (retryError) {
+        const retryCategory = classifyLLMError(retryError);
+        // 重试过程中遇到不可恢复的错误，立即抛出
+        if (retryCategory === 'auth' || retryCategory === 'rate_limit') {
+          throw new Error(`[LLM] 重试过程中遇到${retryCategory === 'auth' ? '认证' : '限速'}错误，终止重试。原始错误: ${retryError}`);
+        }
+        // context_length 在重试中也可以处理
+        if (retryCategory === 'context_length') {
+          console.log(`[LLM] 重试时触发上下文超限，自动压缩并降级重试...`);
+          const reducedMax = Math.floor(config.maxTokens * 0.9);
+          config.maxTokens = reducedMax;
+          appendNote(`[LLM] 上下文超限，已将 maxTokens 降至 ${reducedMax}`);
+          const result = await tieredCompact(
+            openai,
+            config.model,
+            conversationHistory,
+            reducedMax,
+            (msg) => console.log(msg),
+          );
+          if (result.changed) {
+            conversationHistory = result.messages;
+            saveStateFromMessages(conversationHistory);
+          }
+          const retryMessages: Message[] = [
+            { role: 'system', content: buildSystemPrompt() },
+            ...conversationHistory,
+          ];
+          return await callLLMWithTimeout(retryMessages);
+        }
+        // 最后一次重试仍失败，抛出错误
+        if (attempt === LLM_MAX_RETRIES - 1) {
+          throw new Error(`[LLM] 调用失败（已重试 ${LLM_MAX_RETRIES} 次）。原始错误: ${retryError}`);
+        }
+      }
+    }
   }
+
+  // 理论上不会到达此处，但 TypeScript 需要返回值
+  throw new Error('[LLM] 调用失败: 未知错误');
 }
 
 // ==================== Agent 循环 ====================
@@ -402,13 +475,20 @@ async function agentLoop(userInput: string): Promise<void> {
 async function main() {
   const program = new Command();
   program
-    .name('mimo-cli')
-    .description('MiMo Code CLI - 最简化版智能编程助手')
-    .version('1.0.0')
+    .name('mi-cc')
+    .description('mi-cc - 智能编程助手 (MCP Server / CLI)')
+    .version('1.1.0')
     .option('-s, --session <id>', '指定会话 ID')
+    .option('--mcp', '以 MCP Server 模式启动（StdioServerTransport）')
     .parse(process.argv);
 
   const options = program.opts();
+
+  // MCP Server 模式：提前退出 CLI 流程
+  if (options.mcp) {
+    await mcpMode();
+    return;
+  }
 
   console.log(BANNER);
   console.log('输入 /help 查看可用命令\n');
@@ -453,6 +533,17 @@ async function main() {
     console.log(`[新会话] ${currentSessionId}`);
   }
   syncCtx();
+
+  // 恢复压缩摘要层
+  const compressState = loadCompressState();
+  if (compressState.summaries.length > 0) {
+    const summaryMessages: Message[] = compressState.summaries.map(s => ({
+      role: 'system' as const,
+      content: `[历史摘要 L${s.level} @ ${s.createdAt}]\n${s.text}`,
+    }));
+    conversationHistory = [...summaryMessages, ...conversationHistory];
+    console.log(`[压缩] 已恢复 ${compressState.summaries.length} 层摘要`);
+  }
 
   // ==================== Tab 补全 ====================
 

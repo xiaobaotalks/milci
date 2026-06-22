@@ -295,9 +295,12 @@ export async function tieredCompact(
     content: `[${m.role}]: ${m.content}`,
   }));
   const text = await generateSummary(openai, model, blocks);
+  const newLevel = headSummaries.length > 0
+    ? Math.max(...headSummaries.map(parseSummaryLayer).map(s => s?.level ?? -1)) + 1
+    : 0;
   const summaryMsg: Message = {
     role: 'system',
-    content: `[历史摘要 L0 @ ${new Date().toISOString()}]\n${text}`,
+    content: `[历史摘要 L${newLevel} @ ${new Date().toISOString()}]\n${text}`,
   };
   return {
     changed: true,

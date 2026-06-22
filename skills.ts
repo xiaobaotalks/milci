@@ -122,7 +122,7 @@ export function reloadSkills(): Skill[] {
 }
 
 /** 分词（粗略的 CJK + ASCII 切分） */
-function tokenize(text: string): string[] {
+export function tokenize(text: string): string[] {
   const tokens: string[] = [];
   // CJK 单字
   const cjk = text.match(/[\u4e00-\u9fff]/g);

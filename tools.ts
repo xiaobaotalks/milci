@@ -26,10 +26,83 @@ export const DANGEROUS_PATTERNS = [
   /^\s*:(){ :\|:& };:/i,
 ] as const;
 
+/** Shell 命令白名单（默认允许的常见开发命令） */
+export const SHELL_WHITELIST = new Set([
+  'ls', 'cat', 'head', 'tail', 'grep', 'find', 'awk', 'sed', 'wc', 'sort', 'uniq', 'diff',
+  'npm', 'npx', 'yarn', 'pnpm', 'node',
+  'git', 'tsc', 'eslint', 'prettier', 'tsx', 'vite',
+  'mkdir', 'touch', 'cp', 'mv', 'rm',
+  'python', 'python3', 'pip', 'pip3',
+  'docker', 'docker-compose',
+  'curl', 'wget',
+  'echo', 'pwd', 'which', 'whoami', 'date', 'env', 'export',
+  'tar', 'zip', 'unzip', 'chmod', 'chown',
+  'jq', 'yq',
+]);
+
+/** 管道到 shell 的黑名单（禁止 curl|bash 等） */
+const PIPE_TO_SHELL_PATTERN = /^\s*(curl|wget)[^|]*\|\s*(bash|sh|zsh|fish|ksh)\b/i;
+
+/** 检查命令是否被允许执行 */
+export function isCommandAllowed(command: string): { allowed: boolean; reason?: string } {
+  // 提取命令的第一个单词（去掉路径前缀）
+  const trimmed = command.trim();
+  const firstWord = trimmed.split(/\s+/)[0];
+  const baseName = firstWord.split('/').pop() || '';
+
+  // 1. 检查管道到 shell 的黑名单
+  if (PIPE_TO_SHELL_PATTERN.test(trimmed)) {
+    return { allowed: false, reason: '禁止管道到 shell 解释器执行' };
+  }
+
+  // 2. 检查黑名单
+  const danger = isDangerousCommand(trimmed);
+  if (danger) {
+    return { allowed: false, reason: `匹配危险命令模式: ${danger}` };
+  }
+
+  // 3. 检查白名单
+  if (SHELL_WHITELIST.has(baseName)) {
+    return { allowed: true };
+  }
+
+  // 4. 不在白名单也不在黑名单 → 拒绝（安全优先）
+  return { allowed: false, reason: `命令 "${baseName}" 不在白名单中，如需执行请在终端直接运行` };
+}
+
+/** 规范化文件路径并检查是否在项目目录内 */
+export function normalizeFilePath(inputPath: string): string {
+  const resolved = path.resolve(inputPath);
+  const cwd = process.cwd();
+  if (!resolved.startsWith(cwd + path.sep) && resolved !== cwd) {
+    throw new Error(`路径超出项目目录: ${inputPath}`);
+  }
+  return resolved;
+}
+
+const AUDIT_LOG_FILE = 'audit.log';
+
+function writeAuditLog(toolName: string, detail: string, success: boolean): void {
+  const timestamp = new Date().toISOString();
+  const status = success ? '✓' : '✗';
+  const line = `[${timestamp}] [${toolName}] ${status} ${detail}\n`;
+  try {
+    fs.appendFileSync(AUDIT_LOG_FILE, line, 'utf-8');
+  } catch {
+    // ignore
+  }
+}
+
 // ==================== 工具实现函数 ====================
 
 export async function toolReadFile(args: Record<string, unknown>): Promise<string> {
-  const filePath = args.path as string;
+  let filePath = args.path as string;
+  try {
+    filePath = normalizeFilePath(filePath);
+  } catch (e) {
+    writeAuditLog('readFile', String(filePath), false);
+    return `错误: ${(e as Error).message}`;
+  }
   try {
     if (!fs.existsSync(filePath)) {
       return `错误: 文件不存在 ${filePath}`;
@@ -39,23 +112,33 @@ export async function toolReadFile(args: Record<string, unknown>): Promise<strin
       return `错误: 文件过大 (${(stat.size / 1024).toFixed(0)}KB)，超过限制 (${MAX_READ_FILE_SIZE / 1024}KB)。请使用 runShell 配合 head/tail 读取部分内容。`;
     }
     const content = fs.readFileSync(filePath, 'utf-8');
+    writeAuditLog('readFile', filePath, true);
     return `文件内容 (${filePath}):\n${content}`;
   } catch (error) {
+    writeAuditLog('readFile', filePath, false);
     return `读取失败: ${error}`;
   }
 }
 
 export async function toolWriteFile(args: Record<string, unknown>): Promise<string> {
-  const filePath = args.path as string;
+  let filePath = args.path as string;
   const content = args.content as string;
+  try {
+    filePath = normalizeFilePath(filePath);
+  } catch (e) {
+    writeAuditLog('writeFile', String(filePath), false);
+    return `错误: ${(e as Error).message}`;
+  }
   try {
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
     fs.writeFileSync(filePath, content, 'utf-8');
+    writeAuditLog('writeFile', filePath, true);
     return `成功写入文件: ${filePath}`;
   } catch (error) {
+    writeAuditLog('writeFile', filePath, false);
     return `写入失败: ${error}`;
   }
 }
@@ -75,10 +158,11 @@ export async function toolRunShell(args: Record<string, unknown>): Promise<strin
     return '错误: 命令不能为空';
   }
 
-  const danger = isDangerousCommand(command);
-  if (danger) {
-    appendNote(`[安全] 已拦截危险命令: ${command}`);
-    return `错误: 检测到潜在危险命令（匹配: ${danger}），已拒绝执行。如确需执行，请直接在终端运行。`;
+  const check = isCommandAllowed(command);
+  if (!check.allowed) {
+    appendNote(`[安全] 已拦截命令: ${command} (${check.reason})`);
+    writeAuditLog('runShell', command, false);
+    return `错误: ${check.reason}`;
   }
 
   const timeoutMs = typeof args.timeout === 'number' ? args.timeout : SHELL_TIMEOUT_MS;
@@ -95,8 +179,10 @@ export async function toolRunShell(args: Record<string, unknown>): Promise<strin
       (error: Error & { killed?: boolean; signal?: string } | null, stdout: string, stderr: string) => {
         if (error) {
           const reason = error.killed ? `超时被终止 (${error.signal || 'SIGTERM'})` : error.message;
+          writeAuditLog('runShell', command, false);
           resolve(`命令执行错误: ${reason}\n${stderr}`);
         } else {
+          writeAuditLog('runShell', command, true);
           resolve(`执行结果:\n${(stdout || stderr || '无输出').toString()}`);
         }
       },
