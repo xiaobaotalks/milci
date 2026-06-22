@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * MiMo CLI 全局命令入口
+ * mi-cc 全局命令入口
  * 
  * 使用方法：
- *   micli                    # 直接启动
- *   micli /help              # 查看帮助
- *   micli -s <session_id>    # 指定会话 ID
+ *   mi-cc                    # 直接启动
+ *   mi-cc /help              # 查看帮助
+ *   mi-cc -s <session_id>    # 指定会话 ID
+ *   mi-cc --mcp              # MCP Server 模式
  */
 
 'use strict';
@@ -55,7 +56,7 @@ function createPrompt(question) {
 // 首次运行配置向导
 async function setupWizard() {
   console.log('\n╔═══════════════════════════════════════════════════════════════╗');
-  console.log('║           M-Code CLI 首次运行配置向导                          ║');
+  console.log('║           mi-cc 首次运行配置向导                               ║');
   console.log('╚═══════════════════════════════════════════════════════════════╝\n');
   
   console.log('即将进行首次配置，请按 Enter 使用默认设置，或输入自定义值。\n');
@@ -68,7 +69,7 @@ async function setupWizard() {
   const apiKey = await createPrompt('请输入您的 API Key: ');
   
   if (!apiKey.trim()) {
-    console.log('\n[错误] API Key 不能为空，请重新运行 micli 配置。\n');
+    console.log('\n[错误] API Key 不能为空，请重新运行 mi-cc 配置。\n');
     process.exit(1);
   }
   
@@ -91,7 +92,7 @@ MAX_TOKEN=${maxToken.trim()}
   console.log('║                   配置保存成功！                              ║');
   console.log('╚═══════════════════════════════════════════════════════════════╝');
   console.log(`\n配置文件已保存到: ${envPath}`);
-  console.log('现在可以重新运行 micli 开始使用。\n');
+  console.log('现在可以重新运行 mi-cc 开始使用。\n');
   
   process.exit(0);
 }
@@ -117,11 +118,7 @@ async function main() {
   
   // 使用 tsx 运行主程序
   const { spawn } = require('child_process');
-  // 注意: tsx v4 的 package.json 用 "exports" 锁定了子路径,
-  //       require.resolve('tsx') 会返回 loader.mjs (loader API),
-  //       真正可执行 CLI 的是 dist/cli.mjs (从 package.json 的 bin 字段取)。
   function resolveTsxCliPath() {
-    // 1) 先尝试 require tsx (CJS 兼容写法): 如果 bin 字段可用就解析
     try {
       const pkgPath = require.resolve('tsx/package.json');
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
@@ -133,7 +130,6 @@ async function main() {
         }
       }
     } catch {}
-    // 2) 兜底: 沿 node_modules 路径直接拼
     let cur = path.join(__dirname, '..');
     for (let i = 0; i < 6; i++) {
       const candidate = path.join(cur, 'node_modules', 'tsx', 'dist', 'cli.mjs');
@@ -147,11 +143,10 @@ async function main() {
 
   const tsxPath = resolveTsxCliPath();
   if (!tsxPath) {
-    console.error('[micli] 找不到 tsx CLI 入口，请先在项目目录执行 npm install');
+    console.error('[mi-cc] 找不到 tsx CLI 入口，请先在项目目录执行 npm install');
     process.exit(1);
   }
 
-  // 启动 tsx mimo-cli.ts
   const child = spawn(process.execPath, [tsxPath, 'mimo-cli.ts', ...args], {
     stdio: 'inherit',
     cwd: path.join(__dirname, '..'),

@@ -1,14 +1,17 @@
 {
-  "name": "mimo-cli",
-  "version": "1.0.0",
-  "description": "MiMo Code CLI - 最简化版智能编程助手",
+  "name": "mi-cc",
+  "version": "1.1.0",
+  "description": "mi-cc - 最简化版智能编程助手，终端对话 + 工具调用 + 四层记忆 + MCP Server",
   "main": "mimo-cli.ts",
   "bin": {
-    "micli": "./bin/micli.js"
+    "mi-cc": "./bin/mi-cc.js"
   },
   "scripts": {
     "start": "tsx mimo-cli.ts",
     "dev": "tsx mimo-cli.ts",
+    "build": "tsc",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
     "install-global": "npm install -g ."
   },
   "dependencies": {
@@ -16,9 +19,15 @@
     "dotenv": "^16.0.0",
     "openai": "^4.0.0"
   },
+  "optionalDependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "tiktoken": "^1.0.0"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "zod": "^3.0.0"
   }
 }
