@@ -4,7 +4,6 @@
  */
 
 import { createLLMProvider, type LLMProvider, type ChatParams, type ChatResponse } from './llm';
-import type { Config } from '../types';
 
 // ========== Provider 状态 ==========
 
@@ -33,33 +32,17 @@ const MAX_FAILURES = 3; // 连续失败 3 次后进入冷却
 export class ProviderRouter {
   private providers: ProviderStatus[] = [];
   private currentIndex = 0;
-  private config: Config;
 
-  constructor(config: Config, providerConfigs: ProviderConfig[]) {
-    this.config = config;
-    // 主 Provider（来自 .env）
-    this.providers = [
-      {
-        config: {
-          id: 'primary',
-          name: 'Primary',
-          apiKey: config.apiKey,
-          baseUrl: config.baseUrl,
-          model: config.model,
-        },
-        state: 'healthy',
+  constructor(providerConfigs: ProviderConfig[]) {
+    // 主 Provider（来自 providerConfigs 第一项）
+    if (providerConfigs.length > 0) {
+      this.providers = providerConfigs.map(p => ({
+        config: p,
+        state: 'healthy' as const,
         consecutiveFailures: 0,
-      },
-    ];
-    // 备用 Provider（从 .env 的 API_KEY_N 等读取）
-    for (const p of providerConfigs) {
-      if (p.apiKey) {
-        this.providers.push({
-          config: p,
-          state: 'healthy',
-          consecutiveFailures: 0,
-        });
-      }
+      }));
+    } else {
+      this.providers = [];
     }
   }
 

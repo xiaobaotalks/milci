@@ -1,0 +1,260 @@
+/**
+ * LLM 核心模块
+ * 包含所有 LLM 调用相关函数：错误分类、超时、重试、System Prompt、上下文压缩
+ */
+
+import * as fs from 'fs';
+import {
+  tieredCompact,
+  estimateTotalTokens,
+  saveStateFromMessages,
+} from '../compress';
+import { matchSkill, formatSkillForPrompt } from '../skills';
+import type { Message } from '../types';
+import {
+  toolsToOpenAIFormat,
+} from '../tools';
+import {
+  readCheckpoint,
+  readMemory,
+  readNotes,
+  appendNote,
+  SKILL_LIB_FILE,
+} from '../memory';
+import { appState } from './state';
+import OpenAI from 'openai';
+
+// ==================== 常量 ====================
+
+export const LLM_TIMEOUT_MS = 30_000;
+export const LLM_MAX_RETRIES = 3;
+
+// ==================== 错误分类 ====================
+
+/** 分类 LLM 错误类型 */
+export function classifyLLMError(error: unknown): 'auth' | 'rate_limit' | 'server' | 'context_length' | 'unknown' {
+  const msg = (error as Error).message || String(error);
+  if (/invalid.*api.*key|authentication|unauthorized|401/i.test(msg)) return 'auth';
+  if (/rate.?limit|429|too.?many.?requests/i.test(msg)) return 'rate_limit';
+  if (/context.?length|maximum.?context|too.?many.?tokens|prompt.*too.*long/i.test(msg)) return 'context_length';
+  if (/500|502|503|504|econnrefused|econnreset|timeout|ETIMEDOUT/i.test(msg)) return 'server';
+  return 'unknown';
+}
+
+// ==================== LLM 调用 ====================
+
+/** 带超时的 LLM 调用 */
+export async function callLLMWithTimeout(messages: Message[]): Promise<Message> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+
+  try {
+    const response = await appState.get('openai').chat.completions.create({
+      model: appState.get('config').model,
+      messages: messages as unknown as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+      tools: toolsToOpenAIFormat(appState.get('tools')),
+      tool_choice: 'auto',
+      max_tokens: appState.get('config').maxTokens,
+    }, { signal: controller.signal as any });
+    return response.choices[0].message as unknown as Message;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/** 处理上下文超限错误：压缩对话历史并更新状态 */
+export async function handleContextLengthError(reducedMax: number): Promise<void> {
+  const result = await tieredCompact(
+    appState.get('openai'),
+    appState.get('config').model,
+    appState.get('conversationHistory'),
+    reducedMax,
+    (msg) => console.log(msg),
+  );
+  if (result.changed) {
+    appState.set('conversationHistory', result.messages);
+    saveStateFromMessages(appState.get('conversationHistory'));
+  }
+  appendNote(`[LLM] 上下文超限，已将 maxTokens 降至 ${reducedMax}`);
+}
+
+/** 单次 LLM 调用 */
+export async function callLLMSingle(messages: Message[]): Promise<Message> {
+  return await callLLMWithTimeout(messages);
+}
+
+/** 处理上下文超限并重试 */
+async function handleContextLengthAndRetry(messages: Message[]): Promise<Message> {
+  console.log(`[LLM] 触发上下文超限，自动压缩并降级重试...`);
+  const reducedMax = Math.floor(appState.get('config').maxTokens * 0.9);
+  appState.get('config').maxTokens = reducedMax;
+  await handleContextLengthError(reducedMax);
+  const retryMessages: Message[] = [
+    { role: 'system', content: buildSystemPrompt() },
+    ...appState.get('conversationHistory'),
+  ];
+  return await callLLMSingle(retryMessages);
+}
+
+/** 指数退避重试 */
+export async function retryWithBackoff(messages: Message[]): Promise<Message> {
+  for (let attempt = 0; attempt < LLM_MAX_RETRIES; attempt++) {
+    const delay = 500 * Math.pow(2, attempt);
+    console.log(`[LLM] 服务端错误，第 ${attempt + 1}/${LLM_MAX_RETRIES} 次重试，等待 ${delay}ms...`);
+    await new Promise(resolve => setTimeout(resolve, delay));
+
+    try {
+      return await callLLMSingle(messages);
+    } catch (retryError) {
+      const retryCategory = classifyLLMError(retryError);
+
+      if (retryCategory === 'auth' || retryCategory === 'rate_limit') {
+        throw new Error(`[LLM] 重试过程中遇到${retryCategory === 'auth' ? '认证' : '限速'}错误，终止重试。原始错误: ${retryError}`);
+      }
+
+      if (retryCategory === 'context_length') {
+        console.log(`[LLM] 重试时触发上下文超限，自动压缩并降级重试...`);
+        const reducedMax = Math.floor(appState.get('config').maxTokens * 0.9);
+        appState.get('config').maxTokens = reducedMax;
+        await handleContextLengthError(reducedMax);
+        const retryMessages: Message[] = [
+          { role: 'system', content: buildSystemPrompt() },
+          ...appState.get('conversationHistory'),
+        ];
+        return await callLLMSingle(retryMessages);
+      }
+
+      if (attempt === LLM_MAX_RETRIES - 1) {
+        throw new Error(`[LLM] 调用失败（已重试 ${LLM_MAX_RETRIES} 次）。原始错误: ${retryError}`);
+      }
+    }
+  }
+  throw new Error('[LLM] 调用失败: 未知错误');
+}
+
+/** 主 LLM 调用函数 */
+export async function callLLM(messages: Message[]): Promise<Message> {
+  try {
+    return await callLLMSingle(messages);
+  } catch (error) {
+    const category = classifyLLMError(error);
+
+    if (category === 'auth') {
+      throw new Error(`[LLM] 认证失败，请检查 API Key 是否正确。原始错误: ${error}`);
+    }
+
+    if (category === 'rate_limit') {
+      throw new Error(`[LLM] 请求频率超限（429），请稍后再试。原始错误: ${error}`);
+    }
+
+    if (category === 'context_length') {
+      return await handleContextLengthAndRetry(messages);
+    }
+
+    return await retryWithBackoff(messages);
+  }
+}
+
+// ==================== System Prompt ====================
+
+let systemPromptCache: { mtime: number; prompt: string } | null = null;
+
+export function getMemoryMTime(): number {
+  let mtime = 0;
+  for (const file of ['MEMORY.md', 'notes.md', 'skill-lib.md', 'checkpoint.md']) {
+    try {
+      if (fs.existsSync(file)) {
+        const stat = fs.statSync(file);
+        if (stat.mtimeMs > mtime) mtime = stat.mtimeMs;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return mtime;
+}
+
+export function buildSystemPrompt(currentUserInput?: string): string {
+  const mtime = getMemoryMTime();
+  if (systemPromptCache && systemPromptCache.mtime === mtime && !currentUserInput) {
+    return systemPromptCache.prompt;
+  }
+
+  const memory = readMemory();
+  const notes = readNotes();
+  const checkpoint = readCheckpoint();
+  const skillLib = fs.existsSync(SKILL_LIB_FILE) ? fs.readFileSync(SKILL_LIB_FILE, 'utf-8') : '';
+
+  let systemPrompt = `你是一个智能编程助手 mi-cc。
+
+## 当前会话
+- Session ID: ${appState.get('currentSessionId')}
+- 时间: ${new Date().toISOString()}
+
+## 可用工具
+${appState.get('tools').map(t => `- ${t.name}: ${t.description}${t.source === 'mcp' ? ' (MCP)' : ''}`).join('\n')}
+
+## 工作原则
+1. 使用工具完成任务
+2. 保持简洁高效
+3. 记录重要决策
+4. 优先复用技能库中已有的工作流
+`;
+
+  if (memory) {
+    systemPrompt += `\n## 项目记忆\n${memory}\n`;
+  }
+
+  if (notes) {
+    systemPrompt += `\n## 笔记\n${notes}\n`;
+  }
+
+  if (checkpoint) {
+    systemPrompt += `\n## 上次会话状态
+- 任务: ${checkpoint.task}
+- 当前文件: ${checkpoint.currentFile}
+- 最后操作: ${checkpoint.lastAction}
+`;
+  }
+
+  if (skillLib) {
+    systemPrompt += `\n## 技能库（完整）\n${skillLib}\n`;
+  }
+
+  if (currentUserInput) {
+    const matched = matchSkill(currentUserInput);
+    const text = formatSkillForPrompt(matched);
+    if (text) {
+      systemPrompt += `\n## 当前输入最相关的技能（请优先复用）\n${text}\n`;
+      return systemPrompt;
+    }
+  }
+
+  systemPromptCache = { mtime, prompt: systemPrompt };
+  return systemPrompt;
+}
+
+// ==================== 上下文压缩 ====================
+
+export async function compactContext(): Promise<void> {
+  const result = await tieredCompact(
+    appState.get('openai'),
+    appState.get('config').model,
+    appState.get('conversationHistory'),
+    appState.get('config').maxTokens,
+    (msg) => console.log(msg),
+  );
+
+  if (!result.changed) {
+    if (result.tier === 'none') {
+      const total = estimateTotalTokens(appState.get('conversationHistory'));
+      console.log(`[压缩] 当前 token ${total}，无需压缩`);
+    }
+    return;
+  }
+
+  appState.set('conversationHistory', result.messages);
+  saveStateFromMessages(appState.get('conversationHistory'));
+  console.log(`[压缩] 完成 (${result.tier})，当前 token ${estimateTotalTokens(appState.get('conversationHistory'))}`);
+  appendNote(`上下文压缩完成（${result.tier}），剩余 token: ${estimateTotalTokens(appState.get('conversationHistory'))}`);
+}

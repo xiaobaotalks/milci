@@ -10,9 +10,9 @@ class AppState {
   openai!: OpenAI;
   config!: Config;
   currentSessionId!: string;
-  conversationHistory!: Message[];
+  conversationHistory: Message[] = [];
   tools!: Tool[];
-  historyData!: HistoryRecord[];
+  historyData: HistoryRecord[] = [];
 
   // 变更订阅
   private _listeners: Map<string, Set<(value: unknown) => void>> = new Map();
