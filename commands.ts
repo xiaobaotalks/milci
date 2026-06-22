@@ -36,32 +36,198 @@ export interface SlashContext {
 
 // ==================== /connect ====================
 
-function handleConnect(ctx: SlashContext, args: string[]): void {
-  if (args.length === 0) {
-    console.log('用法: /connect <api_key> [base_url] [model]');
-    console.log('当前配置:');
-    console.log(`  API Key: ${ctx.config.apiKey ? '已设置' : '未设置'}`);
-    console.log(`  Base URL: ${ctx.config.baseUrl}`);
-    console.log(`  Model: ${ctx.config.model}`);
-    return;
-  }
+import * as readline from 'readline';
 
-  ctx.config.apiKey = args[0];
-  if (args[1]) ctx.config.baseUrl = args[1];
-  if (args[2]) ctx.config.model = args[2];
+/** 预置的模型配置模板 */
+const PRESET_PROVIDERS = [
+  {
+    name: '小米 MiMo',
+    baseUrl: 'https://token-plan-cn.xiaomimimo.com/v1',
+    models: ['mimo-v2.5-pro', 'mimo-v2.5', 'mimo-v2-pro', 'mimo-v2-omni'],
+  },
+  {
+    name: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
+  },
+  {
+    name: 'Anthropic Claude',
+    baseUrl: 'https://api.anthropic.com/v1',
+    models: ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'],
+  },
+  {
+    name: '智谱 GLM',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4/',
+    models: ['glm-4-plus', 'glm-4-flash'],
+  },
+  {
+    name: '月之暗面 Moonshot',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    models: ['moonshot-v1-128k', 'moonshot-v1-32k'],
+  },
+  {
+    name: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    models: ['deepseek-chat', 'deepseek-reasoner'],
+  },
+  {
+    name: '自定义',
+    baseUrl: '',
+    models: [],
+  },
+];
 
-  ctx.openai = new OpenAI({
-    apiKey: ctx.config.apiKey,
-    baseURL: ctx.config.baseUrl,
+/** 创建交互式输入 */
+function createPrompt(rl: readline.Interface, question: string): Promise<string> {
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => resolve(answer.trim()));
+  });
+}
+
+/** 交互式配置向导 */
+async function interactiveConnect(ctx: SlashContext): Promise<void> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
   });
 
-  const envContent = `API_KEY=${ctx.config.apiKey}
+  try {
+    console.log('\n╔═══════════════════════════════════════════════════════════════╗');
+    console.log('║                  mi-cc API 配置向导                            ║');
+    console.log('╚═══════════════════════════════════════════════════════════════╝\n');
+
+    // 显示当前配置
+    console.log('📋 当前配置:');
+    console.log(`   API Key: ${ctx.config.apiKey ? '✅ 已设置' : '❌ 未设置'}`);
+    console.log(`   Base URL: ${ctx.config.baseUrl}`);
+    console.log(`   Model: ${ctx.config.model}`);
+    console.log(`   Max Tokens: ${ctx.config.maxTokens}\n`);
+
+    // 选择供应商
+    console.log('请选择模型供应商:');
+    PRESET_PROVIDERS.forEach((p, i) => {
+      const marker = p.baseUrl === ctx.config.baseUrl ? ' (当前)' : '';
+      console.log(`  ${i + 1}. ${p.name}${marker}`);
+    });
+
+    const providerIdx = await createPrompt(rl, '\n输入序号 (1-' + PRESET_PROVIDERS.length + '): ');
+    const idx = parseInt(providerIdx, 10) - 1;
+    const provider = PRESET_PROVIDERS[idx] || PRESET_PROVIDERS[0];
+
+    // 输入 API Key（隐藏输入）
+    const apiKey = await createPrompt(rl, '请输入 API Key: ');
+    if (!apiKey) {
+      console.log('❌ API Key 不能为空，配置取消');
+      return;
+    }
+
+    // 自定义 Base URL
+    let baseUrl = provider.baseUrl;
+    if (provider.name === '自定义' || !provider.baseUrl) {
+      const customUrl = await createPrompt(rl, `请输入 Base URL (默认: ${ctx.config.baseUrl}): `);
+      baseUrl = customUrl || ctx.config.baseUrl;
+    }
+
+    // 选择模型
+    let model = provider.models[0] || ctx.config.model;
+    if (provider.models.length > 0) {
+      console.log('\n可用模型:');
+      provider.models.forEach((m, i) => {
+        const marker = m === ctx.config.model ? ' (当前)' : '';
+        console.log(`  ${i + 1}. ${m}${marker}`);
+      });
+      const modelIdx = await createPrompt(rl, '输入序号 (或按 Enter 使用第一个): ');
+      if (modelIdx) {
+        const selected = provider.models[parseInt(modelIdx, 10) - 1];
+        if (selected) model = selected;
+      }
+    } else {
+      const customModel = await createPrompt(rl, `请输入模型名称 (默认: ${ctx.config.model}): `);
+      if (customModel) model = customModel;
+    }
+
+    // 确认配置
+    console.log('\n┌─────────────────────────────────────────────────────────────┐');
+    console.log('│                      配置预览                                │');
+    console.log('├─────────────────────────────────────────────────────────────┤');
+    console.log(`│ 供应商: ${provider.name.padEnd(49)}│`);
+    console.log(`│ API Key: ${'*'.repeat(Math.min(apiKey.length, 20)).padEnd(48)}│`);
+    console.log(`│ Base URL: ${baseUrl.padEnd(48)}│`);
+    console.log(`│ Model: ${model.padEnd(51)}│`);
+    console.log('└─────────────────────────────────────────────────────────────┘\n');
+
+    const confirm = await createPrompt(rl, '确认保存? (Y/n): ');
+    if (confirm.toLowerCase() === 'n') {
+      console.log('❌ 配置已取消');
+      return;
+    }
+
+    // 应用配置
+    ctx.config.apiKey = apiKey;
+    ctx.config.baseUrl = baseUrl;
+    ctx.config.model = model;
+
+    ctx.openai = new OpenAI({
+      apiKey: ctx.config.apiKey,
+      baseURL: ctx.config.baseUrl,
+    });
+
+    // 保存到 .env
+    const envContent = `API_KEY=${ctx.config.apiKey}
 BASE_URL=${ctx.config.baseUrl}
 MODEL=${ctx.config.model}
 MAX_TOKEN=${ctx.config.maxTokens}
 `;
-  fs.writeFileSync('.env', envContent, 'utf-8');
-  console.log('配置已更新并保存');
+    fs.writeFileSync('.env', envContent, 'utf-8');
+
+    console.log('\n✅ 配置已更新并保存到 .env');
+    console.log(`   当前使用: ${provider.name} / ${model}`);
+
+    // 测试连接
+    console.log('\n🔄 正在测试连接...');
+    try {
+      const testResponse = await ctx.openai.chat.completions.create({
+        model: ctx.config.model,
+        messages: [{ role: 'user', content: 'hi' }],
+        max_tokens: 5,
+      });
+      console.log('✅ 连接测试成功!');
+    } catch (error) {
+      console.log(`⚠️ 连接测试失败: ${(error as Error).message}`);
+      console.log('   配置已保存，但请检查 API Key 和 Base URL 是否正确');
+    }
+
+  } finally {
+    rl.close();
+  }
+}
+
+function handleConnect(ctx: SlashContext, args: string[]): void {
+  // 如果有参数，走旧模式（兼容脚本调用）
+  if (args.length > 0) {
+    ctx.config.apiKey = args[0];
+    if (args[1]) ctx.config.baseUrl = args[1];
+    if (args[2]) ctx.config.model = args[2];
+
+    ctx.openai = new OpenAI({
+      apiKey: ctx.config.apiKey,
+      baseURL: ctx.config.baseUrl,
+    });
+
+    const envContent = `API_KEY=${ctx.config.apiKey}
+BASE_URL=${ctx.config.baseUrl}
+MODEL=${ctx.config.model}
+MAX_TOKEN=${ctx.config.maxTokens}
+`;
+    fs.writeFileSync('.env', envContent, 'utf-8');
+    console.log('配置已更新并保存');
+    return;
+  }
+
+  // 无参数时启动交互式向导
+  interactiveConnect(ctx).catch((err) => {
+    console.log(`[配置向导] 错误: ${err}`);
+  });
 }
 
 // ==================== /compact ====================
