@@ -204,7 +204,7 @@ mi-cc --mcp
 
 ```
 .
-├── mimo-cli.ts            # 主程序入口（初始化 + REPL）
+├── mi-cc.ts               # 主程序入口（初始化 + REPL）
 ├── mcp-mode.ts            # MCP Server 模式入口
 ├── commands.ts            # 斜杠命令（12+ 个命令）
 ├── compress.ts            # 分层摘要压缩 + 滚动窗口

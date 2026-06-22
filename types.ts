@@ -1,4 +1,4 @@
-/** 共享类型定义，供 mimo-cli / compress / mcp / skills / memory / tools / commands 使用 */
+/** 共享类型定义，供 mi-cc / compress / mcp / skills / memory / tools / commands 使用 */
 
 import type OpenAI from 'openai';
 

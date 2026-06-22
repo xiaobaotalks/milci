@@ -147,7 +147,7 @@ async function main() {
     process.exit(1);
   }
 
-  const child = spawn(process.execPath, [tsxPath, 'mimo-cli.ts', ...args], {
+  const child = spawn(process.execPath, [tsxPath, 'mi-cc.ts', ...args], {
     stdio: 'inherit',
     cwd: path.join(__dirname, '..'),
     env: process.env

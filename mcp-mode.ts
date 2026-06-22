@@ -40,10 +40,10 @@ import type { Tool, Config } from './types';
 import OpenAI from 'openai';
 import { appState } from './src/state';
 
-// ==================== 初始化（复用 mimo-cli 的配置逻辑） ====================
+// ==================== 初始化（复用 mi-cc 的配置逻辑） ====================
 
 function initConfig(): Config {
-  // 复用 mimo-cli 的配置逻辑（不直接 import 避免循环）
+  // 复用 mi-cc 的配置逻辑（不直接 import 避免循环）
   const dotenv = require('dotenv');
   dotenv.config({ path: '.env' });
   const model = process.env.MODEL || 'gpt-4o-mini';
@@ -122,7 +122,7 @@ export async function mcpMode(): Promise<void> {
         console.error = (...args: unknown[]) => logs.push('[stderr] ' + args.map(String).join(' '));
 
         // 动态 import agentLoop 相关模块
-        const { buildSystemPrompt, callLLM, compactContext } = await import('./mimo-cli') as any;
+        const { buildSystemPrompt, callLLM, compactContext } = await import('./mi-cc') as any;
 
         // 构建 system prompt
         const systemPrompt = buildSystemPrompt(input);

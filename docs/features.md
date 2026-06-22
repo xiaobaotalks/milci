@@ -84,7 +84,7 @@ async function mcpMode() {
 
 | MCP 类型 | 名称 | 功能 | 对应现有代码 |
 |----------|------|------|-------------|
-| tool | `agent_execute` | 执行完整编程任务（内部自主规划、工具调用、压缩） | [agentLoop()](file:///workspace/mimo-cli.ts#L339-L398) |
+| tool | `agent_execute` | 执行完整编程任务（内部自主规划、工具调用、压缩） | [agentLoop()](file:///workspace/mi-cc#L339-L398) |
 | tool | `readFile` | 读取文件 | [toolReadFile()](file:///workspace/tools.ts#L31-L46) |
 | tool | `writeFile` | 写入文件 | [toolWriteFile()](file:///workspace/tools.ts#L48-L61) |
 | tool | `runShell` | 执行 Shell | [toolRunShell()](file:///workspace/tools.ts#L72-L105) |
@@ -103,7 +103,7 @@ async function mcpMode() {
   "mcpServers": {
     "mi-cc": {
       "command": "npx",
-      "args": ["-y", "mimo-cli@latest", "--mcp"],
+      "args": ["-y", "mi-cc@latest", "--mcp"],
       "env": {
         "API_KEY": "${env:MIMO_API_KEY}",
         "MODEL": "mimo-v2.5-pro"
@@ -348,7 +348,7 @@ async function loadApiKey(): Promise<string> {
 ### 5.1 现状
 
 ```typescript
-// mimo-cli.ts 全局变量
+// mi-cc 全局变量
 let openai: OpenAI;
 let config: Config;
 let currentSessionId: string;

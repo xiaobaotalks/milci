@@ -2,13 +2,13 @@
   "name": "mi-cc",
   "version": "2.0.0",
   "description": "mi-cc - 最简化版智能编程助手，终端对话 + 工具调用 + 四层记忆 + MCP Server",
-  "main": "mimo-cli.ts",
+  "main": "mi-cc.ts",
   "bin": {
     "mi-cc": "./bin/mi-cc.js"
   },
   "scripts": {
-    "start": "tsx mimo-cli.ts",
-    "dev": "tsx mimo-cli.ts",
+    "start": "tsx mi-cc.ts",
+    "dev": "tsx mi-cc.ts",
     "build": "tsc",
     "test": "vitest",
     "typecheck": "tsc --noEmit",

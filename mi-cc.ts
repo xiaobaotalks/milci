@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * MiMo Code CLI - 主入口
+ * mi-cc - 主入口
  * 技术栈: Node.js + TypeScript + Commander + fs + JSON
  * 功能: 终端对话、工具调用、四层记忆、上下文压缩、简易蒸馏
  */

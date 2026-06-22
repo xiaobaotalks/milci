@@ -22,15 +22,15 @@
 
 ```bash
 # 方式一：npx 直接运行（推荐）
-npx mimo-cli@latest --mcp
+npx mi-cc@latest --mcp
 
 # 方式二：全局安装
-npm install -g mimo-cli
+npm install -g mi-cc
 mi-cc --mcp
 
 # 方式三：本地安装
 cd your-project
-npm install --save-dev mimo-cli
+npm install --save-dev mi-cc
 npx mi-cc --mcp
 ```
 
@@ -66,7 +66,7 @@ mi-cc --mcp
   "mcpServers": {
     "mi-cc": {
       "command": "npx",
-      "args": ["-y", "mimo-cli@latest", "--mcp"],
+      "args": ["-y", "mi-cc@latest", "--mcp"],
       "env": {
         "API_KEY": "${env:MIMO_API_KEY}",
         "BASE_URL": "https://token-plan-cn.xiaomimimo.com/v1",
@@ -124,7 +124,7 @@ mi-cc --mcp
     "mi-cc": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "mimo-cli@latest", "--mcp"],
+      "args": ["-y", "mi-cc@latest", "--mcp"],
       "env": {
         "API_KEY": "${env:MIMO_API_KEY}"
       }
