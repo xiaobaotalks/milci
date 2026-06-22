@@ -429,6 +429,79 @@ section:nth-child(even) { background: var(--bg-1); }
 :root[data-theme="b"] .compare-table .highlight { background: rgba(0, 255, 65, 0.05); }
 :root[data-theme="c"] .compare-table .highlight { background: rgba(245, 158, 11, 0.05); }
 
+/* API Key 下拉菜单 */
+.api-dropdown {
+  position: relative;
+  display: inline-block;
+}
+.api-trigger::after {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-left: 6px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transition: transform 0.2s;
+}
+.api-dropdown.open .api-trigger::after {
+  transform: rotate(180deg);
+}
+.api-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow-hover), 0 8px 30px rgba(0, 0, 0, 0.2);
+  min-width: 280px;
+  padding: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  z-index: 50;
+  backdrop-filter: blur(20px);
+}
+.api-dropdown.open .api-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.api-menu a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9em;
+  transition: all 0.15s;
+  text-decoration: none;
+}
+.api-menu a:hover {
+  background: var(--bg-2);
+  color: var(--text);
+}
+.api-name { font-weight: 500; }
+.api-tag {
+  font-size: 0.7em;
+  padding: 2px 8px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 100px;
+  font-weight: 500;
+}
+.api-menu a:nth-child(1) .api-tag { background: #f59e0b; }
+.api-menu a:nth-child(2) .api-tag { background: #10b981; }
+.api-menu a:nth-child(3) .api-tag { background: #6366f1; }
+.api-menu a:nth-child(4) .api-tag { background: #10b981; }
+.api-menu a:nth-child(5) .api-tag { background: #10b981; }
+.api-menu a:nth-child(6) .api-tag { background: #10b981; }
+.api-menu a:nth-child(7) .api-tag { background: #ec4899; }
+
 /* 价值主张卡片 */
 .value-prop {
   display: flex;
@@ -655,7 +728,41 @@ footer a:hover { color: var(--accent); }
     <div class="cta">
       <a class="btn btn-primary" href="https://github.com/xiaobaotalks/mi-cc">⭐ Star on GitHub</a>
       <a class="btn btn-secondary" href="#install">🚀 快速开始</a>
-      <a class="btn btn-secondary" href="https://token-plan-cn.xiaomimimo.com/">🔑 获取 API Key</a>
+      <div class="api-dropdown">
+        <button class="btn btn-secondary api-trigger" onclick="toggleApiMenu(event)">
+          🔑 获取 API Key ▾
+        </button>
+        <div class="api-menu" id="apiMenu">
+          <a href="https://token-plan-cn.xiaomimimo.com/" target="_blank">
+            <span class="api-name">小米 MiMo</span>
+            <span class="api-tag">默认</span>
+          </a>
+          <a href="https://platform.deepseek.com/" target="_blank">
+            <span class="api-name">DeepSeek</span>
+            <span class="api-tag">推荐</span>
+          </a>
+          <a href="https://platform.moonshot.cn/" target="_blank">
+            <span class="api-name">月之暗面 Moonshot</span>
+            <span class="api-tag">128K</span>
+          </a>
+          <a href="https://open.bigmodel.cn/" target="_blank">
+            <span class="api-name">智谱 GLM</span>
+            <span class="api-tag">免费</span>
+          </a>
+          <a href="https://hunyuan.tencent.com/" target="_blank">
+            <span class="api-name">腾讯混元</span>
+            <span class="api-tag">免费</span>
+          </a>
+          <a href="https://qianfan.baidu.com/" target="_blank">
+            <span class="api-name">百度千帆</span>
+            <span class="api-tag">免费</span>
+          </a>
+          <a href="https://dashscope.console.aliyun.com/" target="_blank">
+            <span class="api-name">阿里通义千问</span>
+            <span class="api-tag">Qwen</span>
+          </a>
+        </div>
+      </div>
     </div>
   </div>
 </header>
@@ -1003,6 +1110,28 @@ mi-cc --mcp            # 以 MCP Server 模式运行</code><button class="copy-b
 </footer>
 
 <script>
+  // API Key 下拉菜单
+  function toggleApiMenu(e) {
+    e.stopPropagation();
+    const dropdown = e.currentTarget.parentElement;
+    dropdown.classList.toggle('open');
+  }
+
+  // 点击外部关闭下拉
+  document.addEventListener('click', (e) => {
+    const dropdown = document.querySelector('.api-dropdown');
+    if (dropdown && !dropdown.contains(e.target)) {
+      dropdown.classList.remove('open');
+    }
+  });
+
+  // ESC 键关闭下拉
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.api-dropdown.open').forEach(d => d.classList.remove('open'));
+    }
+  });
+
   // 主题切换
   function setTheme(theme) {
     document.body.setAttribute('data-theme', theme);
