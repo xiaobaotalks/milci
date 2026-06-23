@@ -7,6 +7,8 @@
  *   mi-cc /help              # 查看帮助
  *   mi-cc -s <session_id>    # 指定会话 ID
  *   mi-cc --mcp              # MCP Server 模式
+ *   mi-cc update             # 检查并更新到最新版本
+ *   mi-cc version            # 查看当前版本
  */
 
 'use strict';
@@ -14,6 +16,13 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const { execSync, spawn } = require('child_process');
+
+// 当前版本（与 package.json 保持同步）
+const CURRENT_VERSION = '2.1.0';
+
+// 项目根目录
+const PROJECT_ROOT = path.join(__dirname, '..');
 
 // 默认配置
 const DEFAULT_CONFIG = {
@@ -97,12 +106,165 @@ MAX_TOKEN=${maxToken.trim()}
   process.exit(0);
 }
 
+// ==================== update 命令 ====================
+
+function getRemoteVersion() {
+  try {
+    const output = execSync('git ls-remote --tags origin', {
+      cwd: PROJECT_ROOT,
+      timeout: 15000,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    const tags = output.trim().split('\n').filter(l => l.length > 0);
+    if (tags.length === 0) return null;
+    const versions = tags
+      .map(l => l.match(/refs\/tags\/v?([\d.]+)/))
+      .filter(m => m)
+      .map(m => m[1])
+      .sort((a, b) => {
+        const pa = a.split('.').map(Number);
+        const pb = b.split('.').map(Number);
+        for (let i = 0; i < 3; i++) {
+          const d = (pb[i] || 0) - (pa[i] || 0);
+          if (d !== 0) return d;
+        }
+        return 0;
+      });
+    return versions[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+function getLocalChanges() {
+  try {
+    const status = execSync('git status --porcelain', {
+      cwd: PROJECT_ROOT,
+      encoding: 'utf-8',
+      timeout: 5000
+    });
+    return status.trim();
+  } catch {
+    return '';
+  }
+}
+
+async function handleUpdate() {
+  console.log('\n╔══════════════════════════════════════════════════════╗');
+  console.log('║          mi-cc 版本更新                              ║');
+  console.log('╚══════════════════════════════════════════════════════╝\n');
+
+  // 检查是否在 git 仓库中
+  const gitDir = path.join(PROJECT_ROOT, '.git');
+  if (!fs.existsSync(gitDir)) {
+    console.log('[错误] 当前不在 git 仓库中，无法自动更新。');
+    console.log('请手动重新克隆：git clone https://github.com/xiaobaotalks/mi-cc.git\n');
+    process.exit(1);
+  }
+
+  // 显示当前版本
+  console.log(`当前版本: v${CURRENT_VERSION}`);
+
+  // 检查本地修改
+  const localChanges = getLocalChanges();
+  if (localChanges) {
+    console.log('\n[警告] 检测到本地有未提交的修改，更新前将自动暂存。');
+    try {
+      execSync('git stash', { cwd: PROJECT_ROOT, stdio: 'inherit', timeout: 10000 });
+    } catch {
+      console.log('[提示] 暂存失败，继续更新可能覆盖本地修改。');
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await new Promise(r => rl.question('是否继续？(y/N) ', a => { rl.close(); r(a); }));
+      if (answer.toLowerCase() !== 'y') {
+        console.log('已取消更新。');
+        process.exit(0);
+      }
+    }
+  }
+
+  // 拉取最新代码
+  console.log('\n[1/3] 拉取最新代码...');
+  try {
+    execSync('git fetch origin main', { cwd: PROJECT_ROOT, stdio: 'inherit', timeout: 30000 });
+    const localHash = execSync('git rev-parse HEAD', { cwd: PROJECT_ROOT, encoding: 'utf-8' }).trim();
+    const remoteHash = execSync('git rev-parse origin/main', { cwd: PROJECT_ROOT, encoding: 'utf-8' }).trim();
+
+    if (localHash === remoteHash) {
+      console.log('\n[完成] 已是最新版本，无需更新。');
+      // 恢复暂存的修改
+      if (localChanges) {
+        try { execSync('git stash pop', { cwd: PROJECT_ROOT, stdio: 'inherit', timeout: 10000 }); } catch {}
+      }
+      process.exit(0);
+    }
+
+    execSync('git merge origin/main', { cwd: PROJECT_ROOT, stdio: 'inherit', timeout: 15000 });
+    console.log('[OK] 代码更新完成。');
+  } catch (e) {
+    console.log('[错误] 拉取失败:', e.message);
+    if (localChanges) {
+      try { execSync('git stash pop', { cwd: PROJECT_ROOT, stdio: 'inherit', timeout: 10000 }); } catch {}
+    }
+    process.exit(1);
+  }
+
+  // 更新依赖
+  console.log('\n[2/3] 更新依赖...');
+  try {
+    execSync('npm install', { cwd: PROJECT_ROOT, stdio: 'inherit', timeout: 120000 });
+    console.log('[OK] 依赖更新完成。');
+  } catch {
+    console.log('[警告] 依赖更新失败，请手动运行 npm install');
+  }
+
+  // 恢复暂存的修改
+  if (localChanges) {
+    console.log('\n[3/3] 恢复本地修改...');
+    try {
+      execSync('git stash pop', { cwd: PROJECT_ROOT, stdio: 'inherit', timeout: 10000 });
+      console.log('[OK] 本地修改已恢复。');
+    } catch {
+      console.log('[警告] 恢复本地修改失败，请手动运行 git stash pop');
+    }
+  }
+
+  // 读取新版本号
+  try {
+    const newPkg = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf-8'));
+    console.log(`\n╔══════════════════════════════════════════════════════╗`);
+    console.log(`║  ✅ 更新完成！                                        ║`);
+    console.log(`║  ${CURRENT_VERSION} → v${newPkg.version}${' '.repeat(Math.max(0, 40 - CURRENT_VERSION.length - newPkg.version.length - 3))}║`);
+    console.log(`╚══════════════════════════════════════════════════════╝\n`);
+  } catch {
+    console.log('\n✅ 更新完成！请重新运行 mi-cc\n');
+  }
+
+  process.exit(0);
+}
+
+function handleVersion() {
+  console.log(`mi-cc v${CURRENT_VERSION}`);
+  process.exit(0);
+}
+
 // 主程序入口
 async function main() {
-  const envPath = findEnvPath(process.cwd());
-  
-  // 检查是否需要首次配置
   const args = process.argv.slice(2);
+  
+  // 拦截 update 子命令
+  if (args[0] === 'update' || args[0] === 'upgrade') {
+    await handleUpdate();
+    return;
+  }
+  
+  // 拦截 version 子命令
+  if (args[0] === 'version' || args[0] === '-v' || args[0] === '--version') {
+    handleVersion();
+    return;
+  }
+  
+  const envPath = findEnvPath(process.cwd());
   
   // 如果没有任何参数且没有找到配置文件，引导配置
   if (!envPath && args.length === 0) {

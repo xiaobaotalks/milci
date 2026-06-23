@@ -894,7 +894,8 @@ mi-cc --skill "重构 TypeScript 项目"
         <h3><span class="step-num">1</span>克隆并安装依赖</h3>
         <pre><code>git clone https://github.com/xiaobaotalks/mi-cc.git
 cd mi-cc
-npm install</code><button class="copy-btn" onclick="copyCode(this)">复制</button></pre>
+npm install
+npm link          # 启用全局 mi-cc 命令</code><button class="copy-btn" onclick="copyCode(this)">复制</button></pre>
       </div>
 
       <div class="step">
@@ -906,11 +907,11 @@ npm install</code><button class="copy-btn" onclick="copyCode(this)">复制</butt
       </div>
 
       <div class="step">
-        <h3><span class="step-num">3</span>启动</h3>
-        <pre><code>npm run dev            # 开发模式
-# 或
-npm link && mi-cc      # 全局安装后直接使用
-mi-cc --mcp            # 以 MCP Server 模式运行</code><button class="copy-btn" onclick="copyCode(this)">复制</button></pre>
+        <h3><span class="step-num">3</span>启动与更新</h3>
+        <pre><code>mi-cc                 # 直接启动
+mi-cc --mcp           # MCP Server 模式
+mi-cc version         # 查看当前版本
+mi-cc update          # 一键更新到最新版本</code><button class="copy-btn" onclick="copyCode(this)">复制</button></pre>
       </div>
     </div>
   </div>
@@ -931,6 +932,9 @@ mi-cc --mcp            # 以 MCP Server 模式运行</code><button class="copy-b
       <div class="terminal-body">
         <div class="terminal-line terminal-border-top">
           <span class="terminal-warning">[检测]</span> 未发现 API Key — 输入 /connect 进行配置（或 /connect &lt;你的API Key&gt;）
+        </div>
+        <div class="terminal-line">
+          <span class="terminal-info">[版本]</span> 当前 v2.1.0 · 启动时自动检查更新 · 输入 mi-cc update 升级
         </div>
         <div class="terminal-line">
           <span class="terminal-info">[配置]</span> 模型 mimo-v2.5-pro · 自动设置 maxTokens=1000000

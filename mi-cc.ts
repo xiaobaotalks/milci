@@ -7,6 +7,7 @@
 
 import { Command } from 'commander';
 import OpenAI from 'openai';
+import * as https from 'https';
 import {
   loadCompressState,
 } from './compress';
@@ -65,7 +66,7 @@ const BANNER = chalk.cyan(`
 ║  ╚═╝     ╚═╝     ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝    ║
 ╠══════════════════════════════════════════════════════╣
 ║  ▓▒░  ╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮  ░▒▓  ║
-║  ▓▒░  ┃    mi-cc · 为发烧而生 · v2.1.0         ┃ ░▒▓  ║
+║  ▓▒░  ┃    mi-cc · 为发烧而生 · v2.1.0         ┃  ░▒▓  ║
 ║  ▓▒░  ┃    智能编程助手 · LLM Agent Shell      ┃  ░▒▓  ║
 ║  ▓▒░  ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯  ░▒▓  ║
 ╚══════════════════════════════════════════════════════╝
@@ -78,6 +79,52 @@ function initOpenAI(cfg: { apiKey: string; baseUrl: string }) {
     apiKey: cfg.apiKey,
     baseURL: cfg.baseUrl,
   });
+}
+
+// ==================== 版本检查 ====================
+
+const CURRENT_VERSION = '2.1.0';
+
+function fetchRemoteVersion(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const req = https.get(
+      'https://raw.githubusercontent.com/xiaobaotalks/mi-cc/main/package.json',
+      { timeout: 3000 },
+      (res) => {
+        if (res.statusCode !== 200) { resolve(null); return; }
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          try {
+            const pkg = JSON.parse(data);
+            resolve(pkg.version || null);
+          } catch { resolve(null); }
+        });
+      },
+    );
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+}
+
+function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+async function checkUpdate() {
+  const remote = await fetchRemoteVersion();
+  if (remote && compareVersions(remote, CURRENT_VERSION) > 0) {
+    console.log(`┌──────────────────────────────────────────────────────────┐`);
+    console.log(`│  📦 发现新版本 v${remote}（当前 v${CURRENT_VERSION}）${' '.repeat(Math.max(0, 28 - remote.length - CURRENT_VERSION.length))}│`);
+    console.log(`│  运行 mi-cc update 即可一键更新                         │`);
+    console.log(`└──────────────────────────────────────────────────────────┘\n`);
+  }
 }
 
 // ==================== 主程序 ====================
@@ -102,6 +149,9 @@ async function main() {
 
   console.log(BANNER);
   console.log('输入 /help 查看可用命令\n');
+
+  // 非阻塞检查版本更新（不等待结果，不影响启动速度）
+  checkUpdate().catch(() => {});
 
   const { config, warnings } = loadConfig();
   for (const w of warnings) console.log(`[警告] ${w}`);

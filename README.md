@@ -1,5 +1,7 @@
 # mi-cc
 
+**v2.1.0 · 为发烧而生**
+
 **AI 编程助手 · 终端对话 + 工具调用 + 四层记忆 + 多模型故障转移 + MCP Server**
 
 > 默认对接国产大模型（小米 MiMo），兼容任意 OpenAI Chat Completions 协议通道。
@@ -30,43 +32,63 @@
 git clone https://github.com/xiaobaotalks/mi-cc.git
 cd mi-cc
 npm install
+npm link          # 启用全局 mi-cc 命令
 ```
+
+安装完成后即可在任意目录使用 `mi-cc` 启动。
 
 ## 配置
 
+首次运行 `mi-cc` 时会自动检测 API Key，输入 `/connect` 即可启动配置向导。
+
 ```bash
+# 方式一：交互式配置向导（推荐）
+mi-cc
+# 然后输入 /connect
+
+# 方式二：直接指定 API Key
+mi-cc
+# 然后输入 /connect <你的API Key>
+
+# 方式三：手动创建 .env
 cp .env.example .env
-```
-
-`.env` 内容示例（默认小米 MiMo，可切换为其他国产或 OpenAI 兼容通道）：
-
-```
-API_KEY=your_api_key_here
-BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
-MODEL=mimo-v2.5-pro
-
-# 可选：多 Provider 故障转移（主 Provider 失败时自动切换）
-# API_KEY_1=sk-openai-xxxx
-# BASE_URL_1=https://api.openai.com/v1
-# MODEL_1=gpt-4o-mini
+# 编辑 .env 填入 API_KEY
 ```
 
 ## 运行
 
 ```bash
-# 方式一：本地开发
-npm run dev
-
-# 方式二：全局命令
-npm link
+# 方式一：直接启动
 mi-cc
 
-# 方式三：指定会话
+# 方式二：指定会话
 mi-cc -s my-session-id
 
-# 方式四：MCP Server 模式（供 OpenClaw / Cursor / Claude 使用）
+# 方式三：MCP Server 模式（供 OpenClaw / Cursor / Claude 使用）
 mi-cc --mcp
+
+# 版本管理
+mi-cc version      # 查看当前版本
+mi-cc update       # 一键检查并更新到最新版本
 ```
+
+### 版本更新
+
+mi-cc 启动时会自动检查 GitHub 上的最新版本。发现新版本时会提示：
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  📦 发现新版本 v2.2.0（当前 v2.1.0）                     │
+│  运行 mi-cc update 即可一键更新                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+执行 `mi-cc update` 会自动：
+1. 暂存本地修改（如有）
+2. 拉取最新代码（`git pull`）
+3. 更新依赖（`npm install`）
+4. 恢复本地修改
+5. 显示版本变化
 
 ---
 
@@ -262,7 +284,7 @@ mi-cc --mcp
 ├── mcp-tools.example.json # MCP 外部工具示例
 ├── .env.example           # 环境变量示例
 ├── tsconfig.json          # strict TypeScript 配置
-└── package.json           # v2.0.0
+└── package.json           # v2.1.0
 ```
 
 ---
