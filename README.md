@@ -68,8 +68,9 @@ mi-cc -s my-session-id
 mi-cc --mcp
 
 # 版本管理
-mi-cc version      # 查看当前版本
-mi-cc update       # 一键检查并更新到最新版本
+mi-cc version             # 查看当前版本
+mi-cc update              # 一键检查并更新到最新版本
+mi-cc update --force      # 强制 HTTP 模式更新（git 网络不佳时使用）
 ```
 
 ### 版本更新
@@ -89,6 +90,13 @@ mi-cc 启动时会自动检查 GitHub 上的最新版本。发现新版本时会
 3. 更新依赖（`npm install`）
 4. 恢复本地修改
 5. 显示版本变化
+
+> **网络不佳时**：如果 `git fetch` 失败，`mi-cc update` 会自动切换到 HTTP 模式，直接从 GitHub 下载最新文件。也可以手动执行 `mi-cc update --force` 强制使用 HTTP 模式。
+
+> **旧版本无法更新时**：如果 `mi-cc update` 命令本身不生效（说明版本太旧），在项目目录执行以下 PowerShell 命令强制更新：
+> ```powershell
+> iwr https://raw.githubusercontent.com/xiaobaotalks/mi-cc/main/bin/mi-cc.js -OutFile bin/mi-cc.js; mi-cc update --force
+> ```
 
 ---
 
