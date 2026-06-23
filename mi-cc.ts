@@ -10,6 +10,7 @@ import OpenAI from 'openai';
 import * as https from 'https';
 import {
   loadCompressState,
+  resolveContextWindow,
 } from './compress';
 import type { Message } from './types';
 import {
@@ -56,7 +57,7 @@ let router: ProviderRouter | null = null;
 // 启动像素标识
 // 注意：CJK 字符在终端占 2 列宽，源码只算 1 字符；排版时按 CJK 字符数 -1 计算空格
 // 所有行（外框/内框/内容）终端列宽统一为 56
-const BANNER = chalk.cyan(`
+const BANNER = chalk.hex('#FF6900')(`
 ╔══════════════════════════════════════════════════════╗
 ║  ███╗   ███╗     ██████╗ ██████╗ ██████╗ ███████╗    ║
 ║  ████╗ ████║    ██╔════╝██╔═══██╗██╔══██╗██╔════╝    ║
@@ -66,7 +67,7 @@ const BANNER = chalk.cyan(`
 ║  ╚═╝     ╚═╝     ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝    ║
 ╠══════════════════════════════════════════════════════╣
 ║  ▓▒░  ╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮  ░▒▓  ║
-║  ▓▒░  ┃    mi-cc · 为发烧而生 · v2.1.0         ┃  ░▒▓  ║
+║  ▓▒░  ┃    mi-cc · 为发烧而生 · v2.2.1         ┃  ░▒▓  ║
 ║  ▓▒░  ┃    智能编程助手 · LLM Agent Shell      ┃  ░▒▓  ║
 ║  ▓▒░  ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯  ░▒▓  ║
 ╚══════════════════════════════════════════════════════╝
@@ -83,7 +84,7 @@ function initOpenAI(cfg: { apiKey: string; baseUrl: string }) {
 
 // ==================== 版本检查 ====================
 
-const CURRENT_VERSION = '2.1.0';
+const CURRENT_VERSION = '2.2.1';
 
 function fetchRemoteVersion(): Promise<string | null> {
   return new Promise((resolve) => {
@@ -134,7 +135,7 @@ async function main() {
   program
     .name('mi-cc')
     .description('mi-cc - 智能编程助手 (MCP Server / CLI)')
-    .version('2.1.0')
+    .version('2.2.1')
     .option('-s, --session <id>', '指定会话 ID')
     .option('--mcp', '以 MCP Server 模式启动（StdioServerTransport）')
     .parse(process.argv);
@@ -155,6 +156,15 @@ async function main() {
 
   const { config, warnings } = loadConfig();
   for (const w of warnings) console.log(`[警告] ${w}`);
+
+  // 自动推断模型上下文窗口大小（如果 maxTokens 仍为默认值 8000）
+  const resolvedWindow = resolveContextWindow(config.model);
+  if (resolvedWindow && config.maxTokens === 8000) {
+    config.maxTokens = resolvedWindow;
+    console.log(`[配置] 模型 ${config.model} 上下文窗口: ${(resolvedWindow / 1024).toFixed(0)}K tokens`);
+  } else if (!resolvedWindow) {
+    console.log(`[配置] 未知模型 ${config.model}，使用默认 maxTokens=${config.maxTokens}`);
+  }
 
   // 首次运行检测：API Key 缺失或为占位符时引导配置
   if (!config.apiKey || config.apiKey === 'your_api_key_here') {

@@ -74,7 +74,13 @@ export async function startCLI(options: CLIOptions): Promise<void> {
     }
 
     if (trimmed.startsWith('/')) {
-      await handleSlashCommand(slashCtx, trimmed);
+      // 暂停 REPL 的 readline，避免与交互式向导（如 /connect）的 readline 冲突
+      rl.pause();
+      try {
+        await handleSlashCommand(slashCtx, trimmed);
+      } finally {
+        rl.resume();
+      }
       rl.prompt();
       return;
     }

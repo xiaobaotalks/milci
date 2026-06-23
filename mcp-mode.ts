@@ -80,7 +80,7 @@ export async function mcpMode(): Promise<void> {
   // 创建 MCP Server
   const server = new McpServer({
     name: 'mi-cc',
-    version: '2.1.0',
+    version: '2.2.1',
   });
 
   // ---------- 工具: agent_execute ----------

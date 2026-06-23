@@ -85,7 +85,7 @@ describe('resolveContextWindow', () => {
   it('should return known model windows', () => {
     expect(resolveContextWindow('gpt-4o')).toBe(128_000);
     expect(resolveContextWindow('claude-3-5-sonnet-20241022')).toBe(200_000);
-    expect(resolveContextWindow('mimo-v2-flash')).toBe(1_000_000);
+    expect(resolveContextWindow('mimo-v2-flash')).toBe(1_048_576);
   });
 
   it('should return null for unknown models', () => {

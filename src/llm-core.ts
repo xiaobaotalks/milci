@@ -175,7 +175,7 @@ export async function callLLM(messages: Message[]): Promise<Message> {
 
 // ==================== System Prompt ====================
 
-let systemPromptCache: { mtime: number; prompt: string } | null = null;
+let systemPromptCache: { mtime: number; model: string; prompt: string } | null = null;
 
 export function getMemoryMTime(): number {
   let mtime = 0;
@@ -194,10 +194,11 @@ export function getMemoryMTime(): number {
 
 export function buildSystemPrompt(currentUserInput?: string): string {
   const mtime = getMemoryMTime();
+  const currentModel = appState.get('config').model;
 
-  // 基础 prompt 走缓存（文件未修改时直接复用）
+  // 基础 prompt 走缓存（文件未修改且模型未切换时直接复用）
   let basePrompt: string;
-  if (systemPromptCache && systemPromptCache.mtime === mtime) {
+  if (systemPromptCache && systemPromptCache.mtime === mtime && systemPromptCache.model === currentModel) {
     basePrompt = systemPromptCache.prompt;
   } else {
     const memory = readMemory();
@@ -206,6 +207,12 @@ export function buildSystemPrompt(currentUserInput?: string): string {
     const skillLib = fs.existsSync(SKILL_LIB_FILE) ? fs.readFileSync(SKILL_LIB_FILE, 'utf-8') : '';
 
     basePrompt = `你是一个智能编程助手 mi-cc。
+
+## 重要：模型身份
+- 你当前通过 mi-cc 框架运行，底层模型是: ${appState.get('config').model}
+- 当被问及你的模型身份时，请如实回答你是 ${appState.get('config').model} 模型（通过 mi-cc 运行）
+- 不要声称自己是其他模型（如 Claude、GPT、Gemini 等），除非用户实际切换到了该模型
+- 不要编造模型版本或厂商信息
 
 ## 当前会话
 - Session ID: ${appState.get('currentSessionId')}
@@ -241,7 +248,7 @@ ${appState.get('tools').map(t => `- ${t.name}: ${t.description}${t.source === 'm
       basePrompt += `\n## 技能库（完整）\n${skillLib}\n`;
     }
 
-    systemPromptCache = { mtime, prompt: basePrompt };
+    systemPromptCache = { mtime, model: currentModel, prompt: basePrompt };
   }
 
   // 技能匹配是动态的，不缓存
@@ -281,7 +288,7 @@ export async function compactContext(): Promise<CompactResult> {
     appState.get('config').model,
     appState.get('conversationHistory'),
     maxTokens,
-    (msg) => console.log(msg),
+    () => {},  // 不再直接 console.log，压缩信息通过 CompactResult 尾标显示
   );
 
   if (!result.changed) {

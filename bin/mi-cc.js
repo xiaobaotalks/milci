@@ -19,7 +19,7 @@ const readline = require('readline');
 const { execSync, spawn } = require('child_process');
 
 // 当前版本（与 package.json 保持同步）
-const CURRENT_VERSION = '2.1.0';
+const CURRENT_VERSION = '2.2.1';
 
 // 项目根目录
 const PROJECT_ROOT = path.join(__dirname, '..');

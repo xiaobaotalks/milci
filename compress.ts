@@ -26,26 +26,35 @@ export const COMPRESS_TIERS = {
 /** 已知模型的上下文窗口大小（tokens） */
 export const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   // 小米 MiMo 系列（1M 上下文）
-  'mimo-v2-flash': 1_000_000,
-  'mimo-v2-pro': 1_000_000,
-  'xiaomi-mimo': 1_000_000,
+  'mimo-v2.5-pro': 1_048_576,
+  'mimo-v2.5': 1_048_576,
+  'mimo-v2-pro': 1_048_576,
+  'mimo-v2-flash': 1_048_576,
+  'mimo-v2-omni': 262_144,
+  'xiaomi-mimo': 1_048_576,
   // OpenAI 系列
   'gpt-4o': 128_000,
   'gpt-4o-mini': 128_000,
   'gpt-4-turbo': 128_000,
   'gpt-3.5-turbo': 16_385,
+  'gpt-5': 256_000,
   // Anthropic Claude
   'claude-3-5-sonnet-20241022': 200_000,
   'claude-3-opus-20240229': 200_000,
+  'claude-4-opus': 200_000,
   // DeepSeek
   'deepseek-chat': 64_000,
   'deepseek-reasoner': 64_000,
+  'deepseek-v4': 128_000,
   // 智谱 GLM
   'glm-4-plus': 128_000,
   'glm-4-flash': 128_000,
+  'glm-5': 128_000,
   // 月之暗面 Moonshot
   'moonshot-v1-128k': 131_072,
   'moonshot-v1-32k': 32_768,
+  // Kimi
+  'kimi-k2': 131_072,
 };
 
 /** 根据模型名推断上下文窗口大小，未知模型返回 null */
