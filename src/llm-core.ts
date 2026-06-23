@@ -31,6 +31,14 @@ import OpenAI from 'openai';
 export const LLM_TIMEOUT_MS = 30_000;
 export const LLM_MAX_RETRIES = 3;
 
+/**
+ * API 调用时的最大输出 token 数（max_tokens 参数）
+ * 注意：这与 config.maxTokens (上下文窗口) 不同
+ * - config.maxTokens = 模型的上下文窗口大小（如 MiMo = 1M），用于压缩阈值计算
+ * - MAX_OUTPUT_TOKENS = 单次回复的最大输出长度，传给 API 的 max_tokens 参数
+ */
+const MAX_OUTPUT_TOKENS = 4096;
+
 // ==================== 错误分类 ====================
 
 /** 分类 LLM 错误类型 */
@@ -60,7 +68,7 @@ export async function callLLMWithTimeout(messages: Message[]): Promise<Message> 
         messages: messages as unknown as any[],
         tools,
         toolChoice: 'auto',
-        maxTokens: appState.get('config').maxTokens,
+        maxTokens: MAX_OUTPUT_TOKENS,
         signal: controller.signal,
       });
       return response.message;
@@ -72,7 +80,7 @@ export async function callLLMWithTimeout(messages: Message[]): Promise<Message> 
       messages: messages as unknown as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       tools,
       tool_choice: 'auto',
-      max_tokens: appState.get('config').maxTokens,
+      max_tokens: MAX_OUTPUT_TOKENS,
     }, { signal: controller.signal as any });
     return response.choices[0].message as unknown as Message;
   } finally {
@@ -103,10 +111,9 @@ export async function callLLMSingle(messages: Message[]): Promise<Message> {
 
 /** 处理上下文超限并重试 */
 async function handleContextLengthAndRetry(messages: Message[]): Promise<Message> {
-  console.log(`[LLM] 触发上下文超限，自动压缩并降级重试...`);
-  const reducedMax = Math.floor(appState.get('config').maxTokens * 0.9);
-  appState.get('config').maxTokens = reducedMax;
-  await handleContextLengthError(reducedMax);
+  console.log(`[LLM] 触发上下文超限，自动压缩历史...`);
+  const contextWindow = appState.get('config').maxTokens;
+  await handleContextLengthError(contextWindow);
   const retryMessages: Message[] = [
     { role: 'system', content: buildSystemPrompt() },
     ...appState.get('conversationHistory'),
@@ -131,10 +138,9 @@ export async function retryWithBackoff(messages: Message[]): Promise<Message> {
       }
 
       if (retryCategory === 'context_length') {
-        console.log(`[LLM] 重试时触发上下文超限，自动压缩并降级重试...`);
-        const reducedMax = Math.floor(appState.get('config').maxTokens * 0.9);
-        appState.get('config').maxTokens = reducedMax;
-        await handleContextLengthError(reducedMax);
+        console.log(`[LLM] 重试时触发上下文超限，自动压缩历史...`);
+        const contextWindow = appState.get('config').maxTokens;
+        await handleContextLengthError(contextWindow);
         const retryMessages: Message[] = [
           { role: 'system', content: buildSystemPrompt() },
           ...appState.get('conversationHistory'),

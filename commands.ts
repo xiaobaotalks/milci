@@ -239,7 +239,6 @@ async function interactiveConnect(ctx: SlashContext): Promise<void> {
     const envContent = `API_KEY=${apiKeyToStore}
 BASE_URL=${ctx.config.baseUrl}
 MODEL=${ctx.config.model}
-MAX_TOKEN=${ctx.config.maxTokens}
 `;
     fs.writeFileSync('.env', envContent, 'utf-8');
 
@@ -265,7 +264,7 @@ MAX_TOKEN=${ctx.config.maxTokens}
   }
 }
 
-function handleConnect(ctx: SlashContext, args: string[]): void {
+async function handleConnect(ctx: SlashContext, args: string[]): Promise<void> {
   // 如果有参数，走旧模式（兼容脚本调用）
   if (args.length > 0) {
     ctx.config.apiKey = args[0];
@@ -284,17 +283,18 @@ function handleConnect(ctx: SlashContext, args: string[]): void {
     const envContent = `API_KEY=${ctx.config.apiKey}
 BASE_URL=${ctx.config.baseUrl}
 MODEL=${ctx.config.model}
-MAX_TOKEN=${ctx.config.maxTokens}
 `;
     fs.writeFileSync('.env', envContent, 'utf-8');
     console.log('配置已更新并保存');
     return;
   }
 
-  // 无参数时启动交互式向导
-  interactiveConnect(ctx).catch((err) => {
+  // 无参数时启动交互式向导（必须 await，否则 REPL 会与向导的 readline 冲突）
+  try {
+    await interactiveConnect(ctx);
+  } catch (err) {
     console.log(`[配置向导] 错误: ${err}`);
-  });
+  }
 }
 
 // ==================== /compact ====================
@@ -557,7 +557,6 @@ function handleProviderCommand(ctx: SlashContext, args: string[]): void {
       const envContent = `API_KEY=${target.apiKey}
 BASE_URL=${target.baseUrl}
 MODEL=${target.model}
-MAX_TOKEN=${ctx.config.maxTokens}
 `;
       fs.writeFileSync('.env', envContent, 'utf-8');
 
@@ -733,7 +732,7 @@ export async function handleSlashCommand(ctx: SlashContext, input: string): Prom
 
   switch (command) {
     case '/connect':
-      handleConnect(ctx, args);
+      await handleConnect(ctx, args);
       return true;
 
     case '/compact':
