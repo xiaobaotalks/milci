@@ -2,6 +2,7 @@
 
 import type OpenAI from 'openai';
 
+/** 多模态内容（支持文本 + 图片 URL，OpenAI Vision 格式） */
 export type MessageContent =
   | string
   | Array<

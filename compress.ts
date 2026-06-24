@@ -136,7 +136,9 @@ export function contentToString(content: Message['content']): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return content
-      .map(p => (p.type === 'text' ? p.text : '[图片]'))
+      .map((p: { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }) =>
+        p.type === 'text' ? p.text : '[图片]'
+      )
       .join('');
   }
   return '';
@@ -221,7 +223,8 @@ ${blocks.map(b => {
 
   try {
     const response = await callLLM([{ role: 'user', content: prompt }]);
-    return contentToString(response.content).trim() || '摘要生成失败';
+    const text = contentToString(response.content ?? '');
+    return text.trim() || '摘要生成失败';
   } catch (error) {
     return `摘要生成错误: ${(error as Error).message}`;
   }

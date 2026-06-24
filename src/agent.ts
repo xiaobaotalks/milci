@@ -21,7 +21,7 @@ import {
 } from '../memory';
 import { appState } from './state';
 import OpenAI from 'openai';
-import type { Message } from '../types';
+import type { Message, MessageContent } from '../types';
 
 import { callLLM, buildSystemPrompt, compactContext } from './llm-core';
 import type { CompactResult } from './llm-core';
@@ -135,7 +135,7 @@ export async function runAgent(userInput: string): Promise<void> {
   // 如果有待发送的图片，将用户消息改为多模态格式
   const pendingImages = appState.get('pendingImages');
   if (pendingImages.length > 0) {
-    const contentParts: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [
+    const contentParts: MessageContent = [
       { type: 'text', text: userInput },
     ];
     for (const img of pendingImages) {
